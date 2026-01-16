@@ -1,0 +1,11 @@
+C:\dev\fikston\src\Fixon.Domain\bin\Debug\net9.0\Fixon.Domain.deps.json
+C:\dev\fikston\src\Fixon.Domain\bin\Debug\net9.0\Fixon.Domain.dll
+C:\dev\fikston\src\Fixon.Domain\bin\Debug\net9.0\Fixon.Domain.pdb
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.AssemblyInfoInputs.cache
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.AssemblyInfo.cs
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.csproj.CoreCompileInputs.cache
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.dll
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\refint\Fixon.Domain.dll
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.pdb
+C:\dev\fikston\src\Fixon.Domain\obj\Debug\net9.0\ref\Fixon.Domain.dll

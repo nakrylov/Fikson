@@ -1,0 +1,3 @@
+ 
+
+Host=pg4.sweb.ru;Port=5433;Database=n3kinboxru_fxn;Username=n3kinboxru_fxn;Password=VYC7%FeQZKME3XT3

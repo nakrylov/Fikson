@@ -1,0 +1,6 @@
+@Fixon.Api_HostAddress = http://localhost:5198
+
+GET {{Fixon.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
