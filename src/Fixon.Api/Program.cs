@@ -18,8 +18,6 @@ using Fixon.Api.Security;
 using Fixon.Application.Bootstrap;
 using Fixon.Infrastructure.Bootstrap;
 
-public partial class Program { }
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -324,3 +322,6 @@ else
 }
 
 app.Run();
+
+
+public partial class Program { }

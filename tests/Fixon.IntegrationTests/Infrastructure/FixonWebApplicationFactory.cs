@@ -1,28 +1,23 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Fixon.Infrastructure.Persistence;
+using Microsoft.Extensions.Configuration;
 
 namespace Fixon.IntegrationTests.Infrastructure;
 
-public sealed class FixonWebApplicationFactory
-    : WebApplicationFactory<Program>
+public sealed class FixonWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureServices(services =>
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration((context, config) =>
         {
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<FixonDbContext>)
-            );
-
-            if (descriptor != null)
-                services.Remove(descriptor);
-
-            services.AddDbContext<FixonDbContext>(options =>
+            // Добавляем тестовые переменные конфигурации
+            config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                options.UseInMemoryDatabase("FixonTests");
+                ["JWT_SECRET_KEY"] = "TEST_SECRET_KEY_SHOULD_BE_LONG_ENOUGH_123456",
+                ["JWT_ISSUER"] = "fixon-tests",
+                ["JWT_AUDIENCE"] = "fixon-tests"
             });
         });
     }

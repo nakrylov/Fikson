@@ -1,4 +1,6 @@
-﻿namespace Fixon.IntegrationTests;
+﻿using Xunit;
+
+namespace Fixon.IntegrationTests;
 
 public class UnitTest1
 {
