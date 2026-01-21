@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "aBzFxkCoF7s=",
+  "dgSpecHash": "5htekqzToAc=",
   "success": true,
-  "projectFilePath": "C:\\dev\\fikston\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
+  "projectFilePath": "C:\\dev\\fikson\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Никита\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Никита\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\9.0.0\\microsoft.aspnetcore.authentication.jwtbearer.9.0.0.nupkg.sha512",

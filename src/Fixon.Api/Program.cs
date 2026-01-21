@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Fixon.Api.Observability;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.OpenApi.Models;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 using Fixon.Infrastructure.Claims;
@@ -23,6 +24,40 @@ var bootstrapOptions = builder.Configuration.GetSection("Bootstrap").Get<Bootstr
 
 // Observability (logging + tracing + metrics)
 builder.Services.AddFixonObservability(builder.Configuration);
+
+// OpenAPI / Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Fixon API",
+        Version = "v1",
+        Description = "Fixon API (bootstrap + full app endpoints)"
+    });
+
+    // JWT bearer (optional) so Swagger UI can call protected endpoints
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "JWT Authorization header. Example: \"Bearer {token}\""
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // HttpContextAccessor нужен для tenant providers
 builder.Services.AddHttpContextAccessor();
@@ -86,8 +121,14 @@ builder.Services.AddScoped<TenantWriteGuardInterceptor>();
 
 builder.Services.AddDbContext<FixonDbContext>((sp, options) =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Host=localhost;Database=fixon;Username=postgres;Password=postgres";
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        // Local dev default. If you use managed Postgres with SSL, override via:
+        // - appsettings.Development.json ConnectionStrings:DefaultConnection
+        // - or environment variable ConnectionStrings__DefaultConnection
+        connectionString = "Host=localhost;Port=5432;Database=fixon;Username=postgres;Password=postgres;Ssl Mode=Disable;Trust Server Certificate=true";
+    }
     options.UseNpgsql(connectionString);
 
     // Audit is append-only
@@ -125,6 +166,17 @@ if (!bootstrapOptions.Enabled)
 
 var app = builder.Build();
 
+// Swagger UI
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Fixon API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
+
 // Correlation + structured log scopes (no PII)
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingScopeMiddleware>();
@@ -147,6 +199,7 @@ if (!bootstrapOptions.Enabled)
 }
 
 // Public endpoints
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.MapGet("/health", () => Results.Text("OK"));
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {

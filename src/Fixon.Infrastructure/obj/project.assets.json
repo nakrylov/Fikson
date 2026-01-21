@@ -3249,11 +3249,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\dev\\fikston\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
+      "projectUniqueName": "C:\\dev\\fikson\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
       "projectName": "Fixon.Infrastructure",
-      "projectPath": "C:\\dev\\fikston\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
+      "projectPath": "C:\\dev\\fikson\\src\\Fixon.Infrastructure\\Fixon.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\Никита\\.nuget\\packages\\",
-      "outputPath": "C:\\dev\\fikston\\src\\Fixon.Infrastructure\\obj\\",
+      "outputPath": "C:\\dev\\fikson\\src\\Fixon.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Никита\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -3268,11 +3268,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\dev\\fikston\\src\\Fixon.Application\\Fixon.Application.csproj": {
-              "projectPath": "C:\\dev\\fikston\\src\\Fixon.Application\\Fixon.Application.csproj"
+            "C:\\dev\\fikson\\src\\Fixon.Application\\Fixon.Application.csproj": {
+              "projectPath": "C:\\dev\\fikson\\src\\Fixon.Application\\Fixon.Application.csproj"
             },
-            "C:\\dev\\fikston\\src\\Fixon.Domain\\Fixon.Domain.csproj": {
-              "projectPath": "C:\\dev\\fikston\\src\\Fixon.Domain\\Fixon.Domain.csproj"
+            "C:\\dev\\fikson\\src\\Fixon.Domain\\Fixon.Domain.csproj": {
+              "projectPath": "C:\\dev\\fikson\\src\\Fixon.Domain\\Fixon.Domain.csproj"
             }
           }
         }

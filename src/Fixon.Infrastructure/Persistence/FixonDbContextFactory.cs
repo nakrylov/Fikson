@@ -14,6 +14,7 @@ public sealed class FixonDbContextFactory : IDesignTimeDbContextFactory<FixonDbC
     {
         var connectionString =
             Environment.GetEnvironmentVariable("FIXON_CONNECTION_STRING")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? "Host=localhost;Database=fixon;Username=postgres;Password=postgres";
 
         var options = new DbContextOptionsBuilder<FixonDbContext>()
