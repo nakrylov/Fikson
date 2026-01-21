@@ -17,6 +17,10 @@ C:\dev\fikston\src\Fixon.Infrastructure\obj\Debug\net9.0\Fixon.In.779E2715.Up2Da
 C:\dev\fikston\src\Fixon.Infrastructure\obj\Debug\net9.0\Fixon.Infrastructure.genruntimeconfig.cache
 C:\dev\fikston\src\Fixon.Infrastructure\bin\Debug\net9.0\Fixon.Application.dll
 C:\dev\fikston\src\Fixon.Infrastructure\bin\Debug\net9.0\Fixon.Application.pdb
+C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.deps.json
+C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.runtimeconfig.json
+C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.dll
+C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.pdb
 C:\dev\fikson\src\Fixon.Infrastructure\bin\Debug\net9.0\Fixon.Infrastructure.deps.json
 C:\dev\fikson\src\Fixon.Infrastructure\bin\Debug\net9.0\Fixon.Infrastructure.runtimeconfig.json
 C:\dev\fikson\src\Fixon.Infrastructure\bin\Debug\net9.0\Fixon.Infrastructure.dll
@@ -37,7 +41,3 @@ C:\dev\fikson\src\Fixon.Infrastructure\obj\Debug\net9.0\refint\Fixon.Infrastruct
 C:\dev\fikson\src\Fixon.Infrastructure\obj\Debug\net9.0\Fixon.Infrastructure.pdb
 C:\dev\fikson\src\Fixon.Infrastructure\obj\Debug\net9.0\Fixon.Infrastructure.genruntimeconfig.cache
 C:\dev\fikson\src\Fixon.Infrastructure\obj\Debug\net9.0\ref\Fixon.Infrastructure.dll
-C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.deps.json
-C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.runtimeconfig.json
-C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.dll
-C:\dev\fikson\artifacts\buildtest\Fixon.Infrastructure.pdb

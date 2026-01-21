@@ -13,6 +13,9 @@ C:\dev\fikston\src\Fixon.Application\obj\Debug\net9.0\Fixon.Application.dll
 C:\dev\fikston\src\Fixon.Application\obj\Debug\net9.0\refint\Fixon.Application.dll
 C:\dev\fikston\src\Fixon.Application\obj\Debug\net9.0\Fixon.Application.pdb
 C:\dev\fikston\src\Fixon.Application\obj\Debug\net9.0\ref\Fixon.Application.dll
+C:\dev\fikson\artifacts\buildtest\Fixon.Application.deps.json
+C:\dev\fikson\artifacts\buildtest\Fixon.Application.dll
+C:\dev\fikson\artifacts\buildtest\Fixon.Application.pdb
 C:\dev\fikson\src\Fixon.Application\bin\Debug\net9.0\Fixon.Application.deps.json
 C:\dev\fikson\src\Fixon.Application\bin\Debug\net9.0\Fixon.Application.dll
 C:\dev\fikson\src\Fixon.Application\bin\Debug\net9.0\Fixon.Application.pdb
@@ -29,6 +32,3 @@ C:\dev\fikson\src\Fixon.Application\obj\Debug\net9.0\Fixon.Application.dll
 C:\dev\fikson\src\Fixon.Application\obj\Debug\net9.0\refint\Fixon.Application.dll
 C:\dev\fikson\src\Fixon.Application\obj\Debug\net9.0\Fixon.Application.pdb
 C:\dev\fikson\src\Fixon.Application\obj\Debug\net9.0\ref\Fixon.Application.dll
-C:\dev\fikson\artifacts\buildtest\Fixon.Application.deps.json
-C:\dev\fikson\artifacts\buildtest\Fixon.Application.dll
-C:\dev\fikson\artifacts\buildtest\Fixon.Application.pdb

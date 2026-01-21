@@ -18,6 +18,9 @@ using Fixon.Api.Security;
 using Fixon.Application.Bootstrap;
 using Fixon.Infrastructure.Bootstrap;
 
+public partial class Program { }
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 var bootstrapOptions = builder.Configuration.GetSection("Bootstrap").Get<BootstrapOptions>() ?? new BootstrapOptions();

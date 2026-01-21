@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Xunit;
+using Fixon.IntegrationTests.Infrastructure;
+
 
 public sealed class BootstrapScenarioTests
     : IClassFixture<FixonWebApplicationFactory>

@@ -1,0 +1,8 @@
+C:\dev\fikson\tests\Fixon.IntegrationTests\bin\Debug\net9.0\.msCoverageSourceRootsMapping_Fixon.IntegrationTests
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.csproj.AssemblyReference.cache
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\MvcTestingAppManifest.json
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.GeneratedMSBuildEditorConfig.editorconfig
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.AssemblyInfoInputs.cache
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.AssemblyInfo.cs
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.csproj.CoreCompileInputs.cache
+C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Debug\net9.0\Fixon.IntegrationTests.sourcelink.json
