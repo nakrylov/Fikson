@@ -28,6 +28,7 @@ public static class AuthEndpoints
 
         // Ищем пользователя по email (без tenant filter для login)
         var user = await dbContext.Users
+            .IgnoreQueryFilters()
             .Include(u => u.UserRoles)
             .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Email == request.Email);
