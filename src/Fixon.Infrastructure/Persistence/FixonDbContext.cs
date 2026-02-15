@@ -51,6 +51,7 @@ public sealed class FixonDbContext : DbContext
     public DbSet<PenaltyAdjustment> PenaltyAdjustments => Set<PenaltyAdjustment>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportRow> ImportRows => Set<ImportRow>();
+    public DbSet<IdempotencyRequest> IdempotencyRequests => Set<IdempotencyRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

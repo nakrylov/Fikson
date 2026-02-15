@@ -12,6 +12,14 @@ public sealed class ContractConfiguration : IEntityTypeConfiguration<Contract>
 
         builder.HasKey(x => x.Id);
 
+        // PostgreSQL system column xmin as optimistic concurrency token (shadow property).
+        // IMPORTANT: xmin is a system column; we must NOT create it via migrations.
+        builder
+            .Property<uint>("xmin")
+            .HasColumnName("xmin")
+            .IsRowVersion()
+            .IsConcurrencyToken();
+
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.CompanyId).IsRequired();
         builder.Property(x => x.CounterpartyId).IsRequired();

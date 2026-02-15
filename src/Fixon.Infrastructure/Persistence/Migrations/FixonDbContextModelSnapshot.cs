@@ -303,6 +303,12 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<uint>("xmin")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
@@ -969,6 +975,41 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_background_jobs_system_tenant", "(\"IsSystem\" = true AND \"CompanyId\" IS NULL) OR (\"IsSystem\" = false AND \"CompanyId\" IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("Fixon.Infrastructure.Persistence.IdempotencyRequest", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Endpoint")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ResponseBody")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("ResponseStatusCode")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TenantId", "Key", "Endpoint");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Key", "Endpoint")
+                        .IsUnique();
+
+                    b.ToTable("idempotency_requests", (string)null);
                 });
 
             modelBuilder.Entity("Fixon.Domain.Audit.AuditLog", b =>

@@ -251,7 +251,16 @@ else
     api.MapGet("/contracts", ContractsEndpoints.GetContracts)
         .RequireAuthorization(Permissions.ContractsRead);
 
+    api.MapGet("/contracts/{contractId:guid}", ContractsEndpoints.GetContract)
+        .RequireAuthorization(Permissions.ContractsRead);
+
     api.MapPost("/contracts", ContractsEndpoints.CreateContract)
+        .RequireAuthorization(Permissions.ContractsManage);
+
+    api.MapPut("/contracts/{contractId:guid}", ContractsEndpoints.UpdateContract)
+        .RequireAuthorization(Permissions.ContractsManage);
+
+    api.MapDelete("/contracts/{contractId:guid}", ContractsEndpoints.DeleteContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
     api.MapGet("/contracts/{contractId:guid}/history", ContractsEndpoints.GetContractHistory)

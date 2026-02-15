@@ -45,6 +45,13 @@ public sealed class Contract : ActivatableTenantEntity
         Status = ContractStatus.Terminated;
         IsActive = false;
     }
+
+    public void Rename(string name)
+    {
+        if (Status == ContractStatus.Terminated) throw new InvalidOperationException("Contract is terminated.");
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name cannot be empty.", nameof(name));
+        Name = name;
+    }
 }
 
 

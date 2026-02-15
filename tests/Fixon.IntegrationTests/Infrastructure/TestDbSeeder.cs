@@ -1,4 +1,5 @@
 using Fixon.Domain.Companies;
+using Fixon.Domain.Contracts;
 using Fixon.Domain.Users;
 using Fixon.Infrastructure.Auth;
 using Fixon.Infrastructure.Persistence;
@@ -86,6 +87,41 @@ public static class TestDbSeeder
         await db.SaveChangesAsync(ct);
 
         return new SeededAdmin(companyId, userId, email, password);
+    }
+
+    public static async Task<Guid> SeedCounterpartyAsync(
+        IServiceProvider rootServices,
+        Guid tenantId,
+        string name,
+        CancellationToken ct = default)
+    {
+        await EnsureMigratedAsync(rootServices, ct);
+
+        using var scope = rootServices.CreateScope();
+        var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var connectionString = cfg.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("DefaultConnection is not configured for tests.");
+        }
+
+        var options = new DbContextOptionsBuilder<FixonDbContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+
+        // Use system context so query filters won't block reads/writes.
+        await using var db = new FixonDbContext(options, new SystemTenantProvider());
+
+        var id = Guid.NewGuid();
+        db.Counterparties.Add(new Counterparty(
+            id: id,
+            companyId: tenantId,
+            name: name,
+            externalCode: null,
+            isActive: true));
+
+        await db.SaveChangesAsync(ct);
+        return id;
     }
 
     private static async Task<Role> EnsureAdminRoleAsync(FixonDbContext db, CancellationToken ct)
