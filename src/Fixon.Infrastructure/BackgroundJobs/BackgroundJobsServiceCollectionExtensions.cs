@@ -19,7 +19,8 @@ public static class BackgroundJobsServiceCollectionExtensions
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IBackgroundJobQueue, BackgroundJobQueue>();
         services.AddSingleton<BackgroundJobExecutor>();
-        services.AddSingleton<BackgroundJobRunner>();
+        // Runner uses scoped services (DbContextOptions, AuditWriter), so it must be scoped.
+        services.AddScoped<BackgroundJobRunner>();
 
         // Example job (delegates to use case)
         services.AddScoped<ISlaRecalculationUseCase, NoopSlaRecalculationUseCase>();

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fixon.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1293520ad24bcb4e25af2bfd4f3857476cd9bb93")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f56a9af1b5a49b84a4d7b3bd100006522df739b5")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fixon.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fixon.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -17,6 +17,10 @@ using Fixon.Infrastructure.Claims;
 using Fixon.Api.Security;
 using Fixon.Application.Bootstrap;
 using Fixon.Infrastructure.Bootstrap;
+using Fixon.Domain.Companies;
+using Fixon.Domain.Users;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -166,6 +170,19 @@ if (!bootstrapOptions.Enabled)
 }
 
 var app = builder.Build();
+
+// Development-only seed: create a default tenant + admin user.
+// IMPORTANT:
+// - Only runs in Development (never in Production).
+// - Only runs in FULL APP mode (bootstrap disabled), because auth services/endpoints
+//   are not registered in bootstrap mode.
+// - Uses hashed password (no plaintext stored in DB).
+// - Uses SystemTenantProvider to avoid tenant filter issues during startup seeding.
+if (app.Environment.IsDevelopment() && !bootstrapOptions.Enabled)
+{
+    using var scope = app.Services.CreateScope();
+    await SeedDevelopmentDataAsync(scope.ServiceProvider, CancellationToken.None);
+}
 
 // Swagger UI
 if (app.Environment.IsDevelopment())
@@ -332,5 +349,92 @@ else
 
 app.Run();
 
+static async Task SeedDevelopmentDataAsync(IServiceProvider services, CancellationToken ct)
+{
+    // Keep all dev-only credentials here, inside Development branch only.
+    const string adminEmail = "admin@fixon.local";
+    const string adminPassword = "Admin123!";
+    const string defaultTenantName = "Default Tenant";
+
+    var cfg = services.GetRequiredService<IConfiguration>();
+    var connectionString = cfg.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        // In Development we allow the existing fallback from Program.cs DbContext registration.
+        // If you want a specific DB, set ConnectionStrings__DefaultConnection.
+        connectionString = "Host=localhost;Port=5432;Database=fixon;Username=postgres;Password=postgres;Ssl Mode=Disable;Trust Server Certificate=true";
+    }
+
+    var options = new DbContextOptionsBuilder<FixonDbContext>()
+        .UseNpgsql(connectionString)
+        .Options;
+
+    // System context so query filters won't block reads/writes during seeding.
+    await using var db = new FixonDbContext(options, new SystemTenantProvider());
+
+    // Ensure schema is up to date in dev (idempotent).
+    await db.Database.MigrateAsync(ct);
+
+    // If user already exists, do nothing (idempotent on startup).
+    var existing = await db.Users
+        .IgnoreQueryFilters()
+        .AsNoTracking()
+        .SingleOrDefaultAsync(u => u.Email == adminEmail, ct);
+
+    if (existing is not null)
+    {
+        return;
+    }
+
+    var now = DateTimeOffset.UtcNow;
+
+    // Ensure default tenant (company).
+    var company = await db.Companies
+        .IgnoreQueryFilters()
+        .SingleOrDefaultAsync(c => c.Name == defaultTenantName, ct);
+
+    if (company is null)
+    {
+        company = new Company(Guid.NewGuid(), defaultTenantName, now, isActive: true);
+        db.Companies.Add(company);
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Ensure Admin role exists.
+    var adminRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == Roles.Admin, ct);
+    if (adminRole is null)
+    {
+        adminRole = new Role(Guid.NewGuid(), Roles.Admin);
+        db.Roles.Add(adminRole);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // In case of concurrent startup, role could be created by another instance.
+            db.ChangeTracker.Clear();
+            adminRole = await db.Roles.SingleAsync(r => r.Name == Roles.Admin, ct);
+        }
+    }
+
+    // Hash password (no plaintext stored in DB).
+    // Use the same hasher implementation as the app uses.
+    var passwordHash = new PasswordHasher().HashPassword(adminPassword);
+
+    var userId = Guid.NewGuid();
+    var user = new User(
+        id: userId,
+        companyId: company.Id,
+        email: adminEmail,
+        name: "Development Admin",
+        passwordHash: passwordHash,
+        createdAt: now,
+        isActive: true);
+
+    db.Users.Add(user);
+    db.UserRoles.Add(new UserRole(userId: userId, roleId: adminRole.Id));
+    await db.SaveChangesAsync(ct);
+}
 
 public partial class Program { }

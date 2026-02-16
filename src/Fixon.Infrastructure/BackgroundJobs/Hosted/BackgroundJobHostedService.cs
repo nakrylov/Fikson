@@ -1,20 +1,21 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fixon.Infrastructure.BackgroundJobs.Hosted;
 
 public sealed class BackgroundJobHostedService : BackgroundService
 {
-    private readonly BackgroundJobRunner _runner;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly BackgroundJobRunnerOptions _options;
     private readonly ILogger<BackgroundJobHostedService> _logger;
 
     public BackgroundJobHostedService(
-        BackgroundJobRunner runner,
+        IServiceScopeFactory scopeFactory,
         BackgroundJobRunnerOptions options,
         ILogger<BackgroundJobHostedService> logger)
     {
-        _runner = runner;
+        _scopeFactory = scopeFactory;
         _options = options;
         _logger = logger;
     }
@@ -28,7 +29,9 @@ public sealed class BackgroundJobHostedService : BackgroundService
         {
             try
             {
-                await _runner.RunOnceAsync(stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var runner = scope.ServiceProvider.GetRequiredService<BackgroundJobRunner>();
+                await runner.RunOnceAsync(stoppingToken);
             }
             catch (Exception ex)
             {
