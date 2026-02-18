@@ -21,7 +21,7 @@ public interface IJwtTokenService
     /// <summary>
     /// Генерирует JWT токен для пользователя.
     /// </summary>
-    string GenerateToken(User user, IReadOnlyCollection<string> roles, IReadOnlySet<string> permissions);
+    string GenerateToken(User user, Guid? currentTenantId, IReadOnlyCollection<string> roles, IReadOnlySet<string> permissions);
 
     /// <summary>
     /// Валидирует и извлекает claims из JWT токена.
@@ -40,13 +40,18 @@ public sealed class JwtTokenService : IJwtTokenService
         _tokenHandler = new JwtSecurityTokenHandler();
     }
 
-    public string GenerateToken(User user, IReadOnlyCollection<string> roles, IReadOnlySet<string> permissions)
+    public string GenerateToken(User user, Guid? currentTenantId, IReadOnlyCollection<string> roles, IReadOnlySet<string> permissions)
     {
         var claims = new List<Claim>
         {
             new(FixonClaims.UserId, user.Id.ToString()),
-            new(FixonClaims.TenantId, user.CompanyId.ToString()),
         };
+
+        if (currentTenantId.HasValue)
+        {
+            // tenant_id is the current tenant context for this JWT (membership tenant).
+            claims.Add(new Claim(FixonClaims.TenantId, currentTenantId.Value.ToString()));
+        }
 
         // Добавляем роли
         foreach (var role in roles)

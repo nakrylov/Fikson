@@ -116,6 +116,20 @@ public sealed class AuthRoleAuthorizationTests
         db.Users.Add(user);
         db.UserRoles.Add(new UserRole(userId: userId, roleId: role.Id));
 
+        // SaaS step 1: create membership so login uses it.
+        var membershipRole =
+            roleName == Roles.Admin ? MembershipRole.Admin
+            : roleName == Roles.ThreePL ? MembershipRole.Viewer
+            : MembershipRole.Member;
+
+        db.UserTenantMemberships.Add(new UserTenantMembership(
+            id: Guid.NewGuid(),
+            userId: userId,
+            tenantId: companyId,
+            role: membershipRole,
+            status: MembershipStatus.Active,
+            createdAt: now));
+
         await db.SaveChangesAsync();
 
         return new SeededUser(companyId, userId, email, password, roleName);

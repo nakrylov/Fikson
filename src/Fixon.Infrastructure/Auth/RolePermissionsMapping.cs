@@ -18,6 +18,11 @@ public static class RolePermissionsMapping
             Roles.Pledgor => PledgorPermissions,
             Roles.ThreePL => ThreePLPermissions,
             Roles.Admin => AdminPermissions,
+            // SaaS memberships (step 1): map membership roles to existing permission sets.
+            // - Member ≈ Pledgor (full access within tenant)
+            // - Viewer ≈ ThreePL (read/confirm limited access)
+            "Member" => PledgorPermissions,
+            "Viewer" => ThreePLPermissions,
             _ => throw new ArgumentException($"Unknown role: {role}", nameof(role))
         };
     }

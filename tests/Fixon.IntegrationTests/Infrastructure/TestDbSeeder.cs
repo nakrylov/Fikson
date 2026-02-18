@@ -83,6 +83,14 @@ public static class TestDbSeeder
         db.Companies.Add(company);
         db.Users.Add(user);
         db.UserRoles.Add(new UserRole(userId: userId, roleId: adminRole.Id));
+        // SaaS step 1: also create membership (Admin + Active) for login.
+        db.UserTenantMemberships.Add(new UserTenantMembership(
+            id: Guid.NewGuid(),
+            userId: userId,
+            tenantId: companyId,
+            role: MembershipRole.Admin,
+            status: MembershipStatus.Active,
+            createdAt: now));
 
         await db.SaveChangesAsync(ct);
 

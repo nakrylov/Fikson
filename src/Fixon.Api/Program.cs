@@ -212,6 +212,8 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 
 if (!bootstrapOptions.Enabled)
 {
+    // DB-backed check: membership must be active for current tenant.
+    app.UseMiddleware<MembershipValidationMiddleware>();
     app.UseAuthorization();
     app.UseMiddleware<AuthorizationAuditMiddleware>();
 }
@@ -262,6 +264,10 @@ else
     // Auth endpoints (public, no rate limit)
     api.MapPost("/auth/login", AuthEndpoints.Login)
         .AllowAnonymous()
+        .DisableRateLimiting();
+
+    api.MapPost("/auth/switch-tenant", AuthEndpoints.SwitchTenant)
+        .RequireAuthorization()
         .DisableRateLimiting();
 
     // Protected endpoints
@@ -375,16 +381,10 @@ static async Task SeedDevelopmentDataAsync(IServiceProvider services, Cancellati
     // Ensure schema is up to date in dev (idempotent).
     await db.Database.MigrateAsync(ct);
 
-    // If user already exists, do nothing (idempotent on startup).
+    // If user already exists, we still ensure membership exists (idempotent on startup).
     var existing = await db.Users
         .IgnoreQueryFilters()
-        .AsNoTracking()
         .SingleOrDefaultAsync(u => u.Email == adminEmail, ct);
-
-    if (existing is not null)
-    {
-        return;
-    }
 
     var now = DateTimeOffset.UtcNow;
 
@@ -422,19 +422,41 @@ static async Task SeedDevelopmentDataAsync(IServiceProvider services, Cancellati
     // Use the same hasher implementation as the app uses.
     var passwordHash = new PasswordHasher().HashPassword(adminPassword);
 
-    var userId = Guid.NewGuid();
-    var user = new User(
-        id: userId,
-        companyId: company.Id,
-        email: adminEmail,
-        name: "Development Admin",
-        passwordHash: passwordHash,
-        createdAt: now,
-        isActive: true);
+    var user = existing;
+    if (user is null)
+    {
+        var userId = Guid.NewGuid();
+        user = new User(
+            id: userId,
+            companyId: company.Id,
+            email: adminEmail,
+            name: "Development Admin",
+            passwordHash: passwordHash,
+            createdAt: now,
+            isActive: true);
 
-    db.Users.Add(user);
-    db.UserRoles.Add(new UserRole(userId: userId, roleId: adminRole.Id));
-    await db.SaveChangesAsync(ct);
+        db.Users.Add(user);
+        db.UserRoles.Add(new UserRole(userId: userId, roleId: adminRole.Id));
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Ensure default membership exists (Admin + Active).
+    var membershipExists = await db.UserTenantMemberships
+        .AsNoTracking()
+        .AnyAsync(m => m.UserId == user.Id && m.TenantId == company.Id, ct);
+
+    if (!membershipExists)
+    {
+        db.UserTenantMemberships.Add(new UserTenantMembership(
+            id: Guid.NewGuid(),
+            userId: user.Id,
+            tenantId: company.Id,
+            role: MembershipRole.Admin,
+            status: MembershipStatus.Active,
+            createdAt: now));
+
+        await db.SaveChangesAsync(ct);
+    }
 }
 
 public partial class Program { }

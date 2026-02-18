@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fixon.IntegrationTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f56a9af1b5a49b84a4d7b3bd100006522df739b5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c0f89fffe1d9626e07a5c44ce7af29b95b35ca88")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fixon.IntegrationTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fixon.IntegrationTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

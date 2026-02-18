@@ -176,6 +176,19 @@ public sealed class ContractsAccessTests
             isActive: true));
 
         db.UserRoles.Add(new UserRole(userId, role.Id));
+        // SaaS step 1: create membership so login uses it.
+        var membershipRole =
+            roleName == Roles.Admin ? MembershipRole.Admin
+            : roleName == Roles.ThreePL ? MembershipRole.Viewer
+            : MembershipRole.Member;
+
+        db.UserTenantMemberships.Add(new UserTenantMembership(
+            id: Guid.NewGuid(),
+            userId: userId,
+            tenantId: tenantId,
+            role: membershipRole,
+            status: MembershipStatus.Active,
+            createdAt: DateTimeOffset.UtcNow));
         await db.SaveChangesAsync();
 
         return new SeededUser(email, password);

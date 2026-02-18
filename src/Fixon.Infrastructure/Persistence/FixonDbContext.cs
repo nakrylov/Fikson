@@ -34,6 +34,7 @@ public sealed class FixonDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<UserTenantMembership> UserTenantMemberships => Set<UserTenantMembership>();
     public DbSet<Counterparty> Counterparties => Set<Counterparty>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<ContractVersion> ContractVersions => Set<ContractVersion>();
@@ -82,6 +83,14 @@ public sealed class FixonDbContext : DbContext
                 continue;
             }
 
+            // SaaS (Model B): User is a global identity (no tenant filter), but still activatable.
+            if (clrType == typeof(User))
+            {
+                modelBuilder.Entity<User>()
+                    .HasQueryFilter(u => _bypassIsActiveFilter || u.IsActive);
+                continue;
+            }
+
             if (typeof(ActivatableTenantEntity).IsAssignableFrom(clrType))
             {
                 InvokeGeneric(nameof(ApplyTenantAndIsActiveFilter), clrType, modelBuilder);
@@ -99,6 +108,12 @@ public sealed class FixonDbContext : DbContext
             if (clrType == typeof(UserRole))
             {
                 ApplyUserRoleTenantFilter(modelBuilder);
+            }
+
+            // SaaS (step 1): membership uses TenantId (not CompanyId), so we apply explicit filter.
+            if (clrType == typeof(UserTenantMembership))
+            {
+                ApplyUserTenantMembershipFilter(modelBuilder);
             }
         }
     }
@@ -130,7 +145,13 @@ public sealed class FixonDbContext : DbContext
         modelBuilder.Entity<UserRole>()
             .HasQueryFilter(ur =>
                 _bypassTenantFilter
-                || (_companyId != null && ur.User != null && ur.User.CompanyId == _companyId.Value));
+                || (_companyId != null && ur.User != null && ur.User.CompanyId.HasValue && ur.User.CompanyId.Value == _companyId.Value));
+    }
+
+    private void ApplyUserTenantMembershipFilter(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserTenantMembership>()
+            .HasQueryFilter(m => _bypassTenantFilter || (_companyId != null && m.TenantId == _companyId.Value));
     }
 
     private void InvokeGeneric(string methodName, Type clrType, ModelBuilder modelBuilder)
