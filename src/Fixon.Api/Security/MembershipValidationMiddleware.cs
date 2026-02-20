@@ -32,26 +32,39 @@ public sealed class MembershipValidationMiddleware
             return;
         }
 
-        // Skip public auth endpoint(s).
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        if (path.StartsWith("/api/auth/login"))
+        var endpoint = context.GetEndpoint();
+        var allowAnonymous = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null;
+        if (allowAnonymous)
         {
             await _next(context);
             return;
         }
 
-        // If tenant id is missing, TenantResolutionMiddleware will handle it.
-        var userIdRaw = context.User.FindFirst(FixonClaims.UserId)?.Value;
-        var tenantIdRaw = context.User.FindFirst(FixonClaims.TenantId)?.Value;
+        var requireTenant = endpoint?.Metadata.GetMetadata<RequireTenantAttribute>() != null;
 
-        if (!Guid.TryParse(userIdRaw, out var userId) || !Guid.TryParse(tenantIdRaw, out var tenantId))
+        var userIdRaw = context.User.FindFirst(FixonClaims.UserId)?.Value;
+
+        if (!Guid.TryParse(userIdRaw, out var userId))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
 
+        if (!requireTenant)
+        {
+            // Tenant-less JWT support: authenticated user without tenant context is allowed here.
+            await _next(context);
+            return;
+        }
+
+        var tenantIdRaw = context.User.FindFirst(FixonClaims.TenantId)?.Value;
+        if (!Guid.TryParse(tenantIdRaw, out var tenantId))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
         // Ensure membership exists and is active for current tenant.
-        // We can query with tenant filter enabled (it matches `tenantId`), but keep it explicit.
         var membership = await db.UserTenantMemberships
             .AsNoTracking()
             .SingleOrDefaultAsync(m => m.UserId == userId && m.TenantId == tenantId, ct);

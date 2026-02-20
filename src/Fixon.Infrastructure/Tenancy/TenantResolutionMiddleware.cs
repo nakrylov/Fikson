@@ -23,8 +23,9 @@ public sealed class TenantResolutionMiddleware
         HttpContext httpContext,
         ITenantProvider tenantProvider)
     {
-        // Публичные endpoints (health, login) могут не требовать tenant
-        if (!_requireTenant || IsPublicEndpoint(httpContext))
+        // Tenant-less JWT support:
+        // tenant is required only for endpoints explicitly marked with RequireTenant metadata.
+        if (!_requireTenant || !EndpointRequiresTenant(httpContext))
         {
             await _next(httpContext);
             return;
@@ -33,7 +34,12 @@ public sealed class TenantResolutionMiddleware
         // Проверяем наличие tenant (JWT tenant_id или интеграционный X-Api-Key + X-Tenant-Id)
         if (!tenantProvider.IsSystemContext && !tenantProvider.TenantId.HasValue)
         {
-            httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            // If user is authenticated but has no tenant context (tenant-less JWT),
+            // this is a forbidden access to tenant-aware endpoint.
+            httpContext.Response.StatusCode =
+                httpContext.User?.Identity?.IsAuthenticated == true
+                    ? StatusCodes.Status403Forbidden
+                    : StatusCodes.Status401Unauthorized;
             httpContext.Response.ContentType = "application/json";
             await httpContext.Response.WriteAsync(
                 System.Text.Json.JsonSerializer.Serialize(new
@@ -46,10 +52,20 @@ public sealed class TenantResolutionMiddleware
         await _next(httpContext);
     }
 
-    private static bool IsPublicEndpoint(HttpContext httpContext)
+    private static bool EndpointRequiresTenant(HttpContext httpContext)
     {
-        var path = httpContext.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
-        return path == "/health" || path.StartsWith("/api/auth/login");
+        var endpoint = httpContext.GetEndpoint();
+        if (endpoint == null) return false;
+
+        // AllowAnonymous endpoints never require tenant.
+        if (endpoint.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null)
+        {
+            return false;
+        }
+
+        // RequireTenant marker is defined in Fixon.Api (referenced by Fixon.Api project),
+        // but metadata type is available at runtime.
+        return endpoint.Metadata.Any(m => string.Equals(m.GetType().FullName, "Fixon.Api.Security.RequireTenantAttribute", StringComparison.Ordinal));
     }
 }
 

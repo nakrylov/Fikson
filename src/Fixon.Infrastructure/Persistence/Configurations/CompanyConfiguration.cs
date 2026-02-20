@@ -15,6 +15,8 @@ public sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.Property(x => x.CreatedAt).HasColumnType("timestamp with time zone").IsRequired();
+        builder.Property(x => x.PlanType).HasConversion<int>().IsRequired();
+        builder.Property(x => x.MonthlyUsageLimit).IsRequired();
         builder.Property(x => x.IsActive).IsRequired();
 
         builder.HasIndex(x => x.Name);

@@ -55,24 +55,29 @@ public static class AuthEndpoints
 
         if (membership is null)
         {
-            // User exists but has no active tenant membership.
-            return Results.Unauthorized();
+            // Model B: user may exist without any tenant membership.
+            // Issue a tenant-less JWT: userId only (no tenant_id, no role, no permissions).
+            var tokenNoTenant = tokenService.GenerateToken(user, currentTenantId: null, roles: Array.Empty<string>(), permissions: new HashSet<string>());
+
+            return Results.Ok(new LoginResponse
+            {
+                Token = tokenNoTenant,
+                UserId = user.Id,
+                TenantId = Guid.Empty,
+                Roles = new List<string>(),
+                Permissions = new List<string>(),
+            });
         }
 
         var currentTenantId = membership.TenantId;
         var membershipRole = membership.Role.ToString(); // Admin / Member / Viewer
 
-        // Получаем permissions для ролей
-        var allPermissions = new HashSet<string>();
-        foreach (var permission in RolePermissionsMapping.GetPermissionsForRole(membershipRole))
-        {
-            allPermissions.Add(permission);
-        }
-
+        // Получаем permissions для роли membership
+        var permissions = RolePermissionsMapping.GetPermissionsForRole(membershipRole);
         var roles = new List<string> { membershipRole };
 
         // Генерируем JWT токен
-        var token = tokenService.GenerateToken(user, currentTenantId, roles, allPermissions);
+        var token = tokenService.GenerateToken(user, currentTenantId, roles, permissions);
 
         return Results.Ok(new LoginResponse
         {
@@ -80,7 +85,7 @@ public static class AuthEndpoints
             UserId = user.Id,
             TenantId = currentTenantId,
             Roles = roles,
-            Permissions = allPermissions.ToList(),
+            Permissions = permissions.ToList(),
         });
     }
 
@@ -154,6 +159,72 @@ public static class AuthEndpoints
             Permissions = permissions.ToList(),
         });
     }
+
+    /// <summary>
+    /// POST /api/auth/register
+    /// Self-service registration: creates a tenant-less user and returns tenant-less JWT.
+    /// </summary>
+    public static async Task<IResult> Register(
+        [FromBody] RegisterRequest request,
+        FixonDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        IJwtTokenService tokenService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return Results.BadRequest(new { error = "Email and password are required." });
+        }
+
+        if (!IsPasswordValid(request.Password))
+        {
+            return Results.BadRequest(new { error = "Password is invalid." });
+        }
+
+        // Global uniqueness check (ignore tenant filters).
+        var exists = await dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .AnyAsync(u => u.Email == request.Email, ct);
+
+        if (exists)
+        {
+            return Results.BadRequest(new { error = "Email already exists." });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var user = new User(
+            id: Guid.NewGuid(),
+            companyId: null,
+            email: request.Email,
+            name: request.Email,
+            passwordHash: passwordHasher.HashPassword(request.Password),
+            createdAt: now,
+            isActive: true,
+            emailConfirmed: false);
+
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync(ct);
+
+        var token = tokenService.GenerateToken(user, currentTenantId: null, roles: Array.Empty<string>(), permissions: new HashSet<string>());
+
+        return Results.Ok(new LoginResponse
+        {
+            Token = token,
+            UserId = user.Id,
+            TenantId = Guid.Empty,
+            Roles = new List<string>(),
+            Permissions = new List<string>(),
+        });
+    }
+
+    private static bool IsPasswordValid(string password)
+    {
+        if (password.Length < 8) return false;
+        var hasLetter = password.Any(char.IsLetter);
+        var hasDigit = password.Any(char.IsDigit);
+        return hasLetter && hasDigit;
+    }
 }
 
 public sealed class LoginRequest
@@ -174,5 +245,11 @@ public sealed class LoginResponse
 public sealed class SwitchTenantRequest
 {
     public Guid TenantId { get; set; }
+}
+
+public sealed class RegisterRequest
+{
+    public string Email { get; set; } = null!;
+    public string Password { get; set; } = null!;
 }
 

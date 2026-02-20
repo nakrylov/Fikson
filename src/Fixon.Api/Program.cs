@@ -266,90 +266,103 @@ else
         .AllowAnonymous()
         .DisableRateLimiting();
 
+    api.MapPost("/auth/register", AuthEndpoints.Register)
+        .AllowAnonymous()
+        .DisableRateLimiting();
+
     api.MapPost("/auth/switch-tenant", AuthEndpoints.SwitchTenant)
         .RequireAuthorization()
         .DisableRateLimiting();
 
+    // Tenant creation (requires auth but NOT tenant context)
+    api.MapPost("/tenants", TenantsEndpoints.CreateTenant)
+        .RequireAuthorization()
+        .DisableRateLimiting();
+
+    // Tenant-aware endpoints: require tenant_id + active membership.
+    var tenantApi = api.MapGroup("")
+        .WithMetadata(new RequireTenantAttribute());
+
     // Protected endpoints
-    api.MapGet("/contracts", ContractsEndpoints.GetContracts)
+    tenantApi.MapGet("/contracts", ContractsEndpoints.GetContracts)
         .RequireAuthorization(Permissions.ContractsRead);
 
-    api.MapGet("/contracts/{contractId:guid}", ContractsEndpoints.GetContract)
+    tenantApi.MapGet("/contracts/{contractId:guid}", ContractsEndpoints.GetContract)
         .RequireAuthorization(Permissions.ContractsRead);
 
-    api.MapPost("/contracts", ContractsEndpoints.CreateContract)
+    tenantApi.MapPost("/contracts", ContractsEndpoints.CreateContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapPut("/contracts/{contractId:guid}", ContractsEndpoints.UpdateContract)
+    tenantApi.MapPut("/contracts/{contractId:guid}", ContractsEndpoints.UpdateContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapDelete("/contracts/{contractId:guid}", ContractsEndpoints.DeleteContract)
+    tenantApi.MapDelete("/contracts/{contractId:guid}", ContractsEndpoints.DeleteContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapGet("/contracts/{contractId:guid}/history", ContractsEndpoints.GetContractHistory)
+    tenantApi.MapGet("/contracts/{contractId:guid}/history", ContractsEndpoints.GetContractHistory)
         .RequireAuthorization(Permissions.ContractsRead);
 
-    api.MapPost("/contracts/{contractId:guid}/versions", ContractsEndpoints.CreateContractVersion)
+    tenantApi.MapPost("/contracts/{contractId:guid}/versions", ContractsEndpoints.CreateContractVersion)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/sign", ContractsEndpoints.SignContractVersion)
+    tenantApi.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/sign", ContractsEndpoints.SignContractVersion)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/activate", ContractsEndpoints.ActivateContractVersion)
+    tenantApi.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/activate", ContractsEndpoints.ActivateContractVersion)
         .RequireAuthorization(Permissions.ContractsManage);
 
-    api.MapPost("/contracts/{contractId:guid}/terminate", ContractsEndpoints.TerminateContract)
+    tenantApi.MapPost("/contracts/{contractId:guid}/terminate", ContractsEndpoints.TerminateContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
     // Reporting endpoints (read-only)
-    api.MapGet("/reports/sla-compliance", ReportsEndpoints.GetSlaCompliance)
+    tenantApi.MapGet("/reports/sla-compliance", ReportsEndpoints.GetSlaCompliance)
         .RequireAuthorization(Permissions.SlaView);
 
-    api.MapGet("/reports/penalties-summary", ReportsEndpoints.GetPenaltiesSummary)
+    tenantApi.MapGet("/reports/penalties-summary", ReportsEndpoints.GetPenaltiesSummary)
         .RequireAuthorization(Permissions.ClaimsRead);
 
-    api.MapGet("/reports/audit", ReportsEndpoints.GetAuditFeed)
+    tenantApi.MapGet("/reports/audit", ReportsEndpoints.GetAuditFeed)
         .RequireAuthorization(Permissions.AuditRead);
 
     // Imports (two-phase: upload → validate → commit)
-    api.MapPost("/imports/facts/upload", ImportsEndpoints.UploadFactsImport)
+    tenantApi.MapPost("/imports/facts/upload", ImportsEndpoints.UploadFactsImport)
         .RequireAuthorization(Permissions.ImportsUpload);
 
-    api.MapPost("/imports/{batchId:guid}/validate", ImportsEndpoints.ValidateImport)
+    tenantApi.MapPost("/imports/{batchId:guid}/validate", ImportsEndpoints.ValidateImport)
         .RequireAuthorization(Permissions.ImportsUpload);
 
-    api.MapPost("/imports/{batchId:guid}/commit", ImportsEndpoints.CommitImport)
+    tenantApi.MapPost("/imports/{batchId:guid}/commit", ImportsEndpoints.CommitImport)
         .RequireAuthorization(Permissions.ImportsUpload);
 
-    api.MapGet("/imports/{batchId:guid}", ImportsEndpoints.GetImportStatus)
+    tenantApi.MapGet("/imports/{batchId:guid}", ImportsEndpoints.GetImportStatus)
         .RequireAuthorization(Permissions.ImportsUpload);
 
-    api.MapGet("/imports/{batchId:guid}/errors", ImportsEndpoints.GetImportErrors)
+    tenantApi.MapGet("/imports/{batchId:guid}/errors", ImportsEndpoints.GetImportErrors)
         .RequireAuthorization(Permissions.ImportsUpload);
 
     // Claims lifecycle
-    api.MapGet("/claims/{claimId:guid}", ClaimsEndpoints.GetClaim)
+    tenantApi.MapGet("/claims/{claimId:guid}", ClaimsEndpoints.GetClaim)
         .RequireAuthorization(Permissions.ClaimsRead);
 
-    api.MapGet("/claims/{claimId:guid}/timeline", ClaimsEndpoints.GetClaimTimeline)
+    tenantApi.MapGet("/claims/{claimId:guid}/timeline", ClaimsEndpoints.GetClaimTimeline)
         .RequireAuthorization(Permissions.ClaimsRead);
 
-    api.MapPost("/claims/{claimId:guid}/submit", ClaimsEndpoints.SubmitClaim)
+    tenantApi.MapPost("/claims/{claimId:guid}/submit", ClaimsEndpoints.SubmitClaim)
         .RequireAuthorization(Permissions.ClaimsManage);
 
-    api.MapPost("/claims/{claimId:guid}/review", ClaimsEndpoints.ReviewClaim)
+    tenantApi.MapPost("/claims/{claimId:guid}/review", ClaimsEndpoints.ReviewClaim)
         .RequireAuthorization(Permissions.ClaimsManage);
 
-    api.MapPost("/claims/{claimId:guid}/decide", ClaimsEndpoints.DecideClaim)
+    tenantApi.MapPost("/claims/{claimId:guid}/decide", ClaimsEndpoints.DecideClaim)
         .RequireAuthorization(Permissions.ClaimsManage);
 
-    api.MapPost("/claims/{claimId:guid}/disputes/open", ClaimsEndpoints.OpenDispute)
+    tenantApi.MapPost("/claims/{claimId:guid}/disputes/open", ClaimsEndpoints.OpenDispute)
         .RequireAuthorization(Permissions.ClaimsManage);
 
-    api.MapPost("/claims/{claimId:guid}/disputes/{disputeId:guid}/resolve", ClaimsEndpoints.ResolveDispute)
+    tenantApi.MapPost("/claims/{claimId:guid}/disputes/{disputeId:guid}/resolve", ClaimsEndpoints.ResolveDispute)
         .RequireAuthorization(Permissions.ClaimsManage);
 
-    api.MapPost("/claims/{claimId:guid}/cancel", ClaimsEndpoints.CancelClaim)
+    tenantApi.MapPost("/claims/{claimId:guid}/cancel", ClaimsEndpoints.CancelClaim)
         .RequireAuthorization(Permissions.ClaimsManage);
 }
 

@@ -37,17 +37,24 @@ public sealed class TenantWriteGuardInterceptor : SaveChangesInterceptor
         if (db == null) return;
         if (_tenantProvider.IsSystemContext) return;
 
-        var tenantId = _tenantProvider.TenantId;
-        if (!tenantId.HasValue)
-        {
-            throw new InvalidOperationException("TenantId is not resolved for this request.");
-        }
-
         // Validate any added/modified tenant-scoped entities
         var tenantEntries = db.ChangeTracker.Entries()
             .Where(e => e.State is EntityState.Added or EntityState.Modified)
             .Where(e => e.Entity is TenantEntity)
             .ToList();
+
+        // Model B: some endpoints allow tenant-less identity operations.
+        // If there are NO tenant-scoped entities being written, we don't require TenantId.
+        if (tenantEntries.Count == 0)
+        {
+            return;
+        }
+
+        var tenantId = _tenantProvider.TenantId;
+        if (!tenantId.HasValue)
+        {
+            throw new InvalidOperationException("TenantId is not resolved for this request.");
+        }
 
         foreach (var entry in tenantEntries)
         {
