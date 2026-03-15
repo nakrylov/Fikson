@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from '../i18n';
 
 /**
  * Placeholder Modal component (minimal).
@@ -19,7 +20,7 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
       <div>
         {title ? <h3>{title}</h3> : null}
         <button type="button" onClick={onClose}>
-          Close
+          {t.common.close}
         </button>
       </div>
       <div>{children}</div>

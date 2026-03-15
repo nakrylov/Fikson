@@ -281,6 +281,49 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.ToTable("companies", (string)null);
                 });
 
+            modelBuilder.Entity("Fixon.Domain.Companies.TenantInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("tenant_invites", (string)null);
+                });
+
             modelBuilder.Entity("Fixon.Domain.Contracts.Contract", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1149,6 +1192,17 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Claim");
+                });
+
+            modelBuilder.Entity("Fixon.Domain.Companies.TenantInvite", b =>
+                {
+                    b.HasOne("Fixon.Domain.Companies.Company", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
                 });
 
             modelBuilder.Entity("Fixon.Domain.Contracts.Contract", b =>

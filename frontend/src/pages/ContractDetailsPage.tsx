@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '../api/api';
 import { useFetch } from '../hooks/useFetch';
+import { t } from '../i18n';
 
 /**
  * /contract/:id
@@ -27,18 +28,18 @@ export function ContractDetailsPage() {
 
   return (
     <div>
-      <h2>Contract details</h2>
+      <h2>{t.contracts.detailsTitle}</h2>
       <div>
-        <Link to="/contracts">Back to list</Link>
+        <Link to="/contracts">{t.common.backToList}</Link>
         <button type="button" onClick={() => refetch()}>
-          Refresh
+          {t.common.refresh}
         </button>
       </div>
 
-      {loading ? <div>Loading…</div> : null}
-      {error ? <div style={{ color: 'red' }}>Failed to load contract.</div> : null}
+      {loading ? <div>{t.common.loading}</div> : null}
+      {error ? <div style={{ color: 'red' }}>{t.errors.failedToLoadContract}</div> : null}
 
-      <pre style={{ whiteSpace: 'pre-wrap' }}>{data ? JSON.stringify(data, null, 2) : 'No data'}</pre>
+      <pre style={{ whiteSpace: 'pre-wrap' }}>{data ? JSON.stringify(data, null, 2) : t.common.noData}</pre>
     </div>
   );
 }

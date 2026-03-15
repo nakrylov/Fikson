@@ -90,6 +90,67 @@ public static class AuthEndpoints
     }
 
     /// <summary>
+    /// GET /api/auth/me
+    /// Returns current user profile and available memberships for tenant switch UI.
+    /// </summary>
+    public static async Task<IResult> Me(
+        ClaimsPrincipal user,
+        FixonDbContext dbContext,
+        CancellationToken ct)
+    {
+        var userIdClaim = user.FindFirst(FixonClaims.UserId)?.Value;
+        if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var dbUser = await dbContext.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(u => u.Id == userId, ct);
+
+        if (dbUser is null || !dbUser.IsActive)
+        {
+            return Results.Unauthorized();
+        }
+
+        Guid? currentTenantId = null;
+        var tenantClaim = user.FindFirst(FixonClaims.TenantId)?.Value;
+        if (!string.IsNullOrWhiteSpace(tenantClaim) && Guid.TryParse(tenantClaim, out var parsedTenant))
+        {
+            currentTenantId = parsedTenant;
+        }
+
+        var roleClaim = user.FindFirst(FixonClaims.Role)?.Value;
+
+        var memberships = await dbContext.UserTenantMemberships
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.UserId == userId && m.Status == MembershipStatus.Active)
+            .Join(
+                dbContext.Companies.IgnoreQueryFilters().AsNoTracking(),
+                m => m.TenantId,
+                c => c.Id,
+                (m, c) => new MembershipInfo
+                {
+                    TenantId = m.TenantId,
+                    TenantName = c.Name,
+                    Role = m.Role.ToString()
+                })
+            .OrderBy(x => x.TenantName)
+            .ToListAsync(ct);
+
+        return Results.Ok(new MeResponse
+        {
+            UserId = dbUser.Id,
+            Email = dbUser.Email,
+            CurrentTenantId = currentTenantId,
+            Role = roleClaim,
+            Memberships = memberships
+        });
+    }
+
+    /// <summary>
     /// POST /api/auth/switch-tenant
     /// Switches current tenant context for a user with multiple memberships.
     /// </summary>
@@ -251,5 +312,21 @@ public sealed class RegisterRequest
 {
     public string Email { get; set; } = null!;
     public string Password { get; set; } = null!;
+}
+
+public sealed class MeResponse
+{
+    public Guid UserId { get; set; }
+    public string Email { get; set; } = null!;
+    public Guid? CurrentTenantId { get; set; }
+    public string? Role { get; set; }
+    public List<MembershipInfo> Memberships { get; set; } = new();
+}
+
+public sealed class MembershipInfo
+{
+    public Guid TenantId { get; set; }
+    public string TenantName { get; set; } = null!;
+    public string Role { get; set; } = null!;
 }
 

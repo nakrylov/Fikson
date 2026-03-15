@@ -1,5 +1,12 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRequest, clearStoredToken, getStoredToken, setStoredToken } from '../api/api';
+import {
+  apiRequest,
+  clearStoredToken,
+  CurrentUserMembership,
+  getCurrentUser,
+  getStoredToken,
+  setStoredToken
+} from '../api/api';
 
 /**
  * UserContext:
@@ -12,14 +19,22 @@ import { apiRequest, clearStoredToken, getStoredToken, setStoredToken } from '..
  */
 
 export type UserInfo = {
+  userId: string | null;
   token: string | null;
   tenantId: string | null;
   role: string | null;
+  memberships: CurrentUserMembership[];
 };
 
 export type UserContextValue = UserInfo & {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /**
+   * Allows setting JWT received from other flows
+   * (e.g., /auth/register, /tenants/join).
+   */
+  setToken: (token: string) => void;
+  refreshUser: () => Promise<void>;
   logout: () => void;
 };
 
@@ -74,9 +89,11 @@ type LoginResponse = {
 };
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [userId, setUserId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<CurrentUserMembership[]>([]);
 
   const isAuthenticated = !!token;
 
@@ -87,11 +104,35 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setRole(extractRole(payload));
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const jwt = getStoredToken();
+    if (!jwt) {
+      setUserId(null);
+      setMemberships([]);
+      return;
+    }
+
+    try {
+      const me = await getCurrentUser();
+      setUserId(me.userId);
+      setMemberships(me.memberships ?? []);
+
+      // Server-provided current tenant/role is the source of truth.
+      setTenantId(me.currentTenantId ?? null);
+      setRole(me.role ?? null);
+    } catch {
+      // API wrapper already handles 401 globally.
+      setUserId(null);
+      setMemberships([]);
+    }
+  }, []);
+
   useEffect(() => {
     // On app start: restore token from localStorage (if any).
     const stored = getStoredToken();
     hydrateFromToken(stored);
-  }, [hydrateFromToken]);
+    void refreshUser();
+  }, [hydrateFromToken, refreshUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -104,25 +145,41 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       setStoredToken(resp.token);
       hydrateFromToken(resp.token);
+      await refreshUser();
     },
-    [hydrateFromToken]
+    [hydrateFromToken, refreshUser]
+  );
+
+  const setTokenExternal = useCallback(
+    (jwt: string) => {
+      setStoredToken(jwt);
+      hydrateFromToken(jwt);
+      void refreshUser();
+    },
+    [hydrateFromToken, refreshUser]
   );
 
   const logout = useCallback(() => {
     clearStoredToken();
     hydrateFromToken(null);
+    setUserId(null);
+    setMemberships([]);
   }, [hydrateFromToken]);
 
   const value = useMemo<UserContextValue>(
     () => ({
+      userId,
       token,
       tenantId,
       role,
+      memberships,
       isAuthenticated,
       login,
+      setToken: setTokenExternal,
+      refreshUser,
       logout
     }),
-    [token, tenantId, role, isAuthenticated, login, logout]
+    [userId, token, tenantId, role, memberships, isAuthenticated, login, setTokenExternal, refreshUser, logout]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

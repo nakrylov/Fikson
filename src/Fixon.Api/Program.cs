@@ -274,14 +274,42 @@ else
         .RequireAuthorization()
         .DisableRateLimiting();
 
+    api.MapGet("/auth/me", AuthEndpoints.Me)
+        .RequireAuthorization()
+        .DisableRateLimiting();
+
     // Tenant creation (requires auth but NOT tenant context)
     api.MapPost("/tenants", TenantsEndpoints.CreateTenant)
+        .RequireAuthorization()
+        .DisableRateLimiting();
+
+    // Public invite lookup (no tenant required)
+    api.MapGet("/invites/{token}", InvitesEndpoints.GetInvite)
+        .AllowAnonymous()
+        .DisableRateLimiting();
+
+    // Accept invite (authenticated identity, no tenant required)
+    api.MapPost("/tenants/join", InvitesEndpoints.JoinTenant)
         .RequireAuthorization()
         .DisableRateLimiting();
 
     // Tenant-aware endpoints: require tenant_id + active membership.
     var tenantApi = api.MapGroup("")
         .WithMetadata(new RequireTenantAttribute());
+
+    // Tenant admin: create invite
+    tenantApi.MapPost("/tenants/{tenantId:guid}/invites", InvitesEndpoints.CreateInvite)
+        .RequireAuthorization();
+
+    // Tenant admin: list/revoke invites
+    tenantApi.MapGet("/tenants/{tenantId:guid}/invites", InvitesEndpoints.GetTenantInvites)
+        .RequireAuthorization();
+    tenantApi.MapPost("/tenants/{tenantId:guid}/invites/{inviteId:guid}/revoke", InvitesEndpoints.RevokeInvite)
+        .RequireAuthorization();
+
+    // Tenant admin: list memberships
+    tenantApi.MapGet("/tenants/{tenantId:guid}/members", TenantsEndpoints.GetTenantMembers)
+        .RequireAuthorization();
 
     // Protected endpoints
     tenantApi.MapGet("/contracts", ContractsEndpoints.GetContracts)

@@ -97,3 +97,140 @@ export async function apiRequest<T = unknown>(path: string, init: ApiRequestInit
   return payload as T;
 }
 
+// -----------------------
+// Invite Flow helpers
+// -----------------------
+
+export type InviteInfo = {
+  tenantName: string;
+  email: string;
+  role: string;
+  expiresAt: string;
+};
+
+export async function getInvite(token: string): Promise<InviteInfo> {
+  // Public endpoint.
+  return apiRequest<InviteInfo>(`/api/invites/${encodeURIComponent(token)}`, { method: 'GET', skipAuth: true });
+}
+
+export type AcceptInviteResponse = {
+  token: string;
+  tenantId: string;
+  role: string;
+};
+
+export async function acceptInvite(token: string): Promise<AcceptInviteResponse> {
+  // Authenticated endpoint (Authorization header is added automatically from localStorage).
+  return apiRequest<AcceptInviteResponse>('/api/tenants/join', {
+    method: 'POST',
+    body: { token }
+  });
+}
+
+export type CreateTenantResponse = {
+  token: string;
+  tenantId: string;
+  role: string;
+};
+
+export async function createTenant(name: string): Promise<CreateTenantResponse> {
+  return apiRequest<CreateTenantResponse>('/api/tenants', {
+    method: 'POST',
+    body: { name }
+  });
+}
+
+export type CreateInviteResponse = {
+  inviteToken: string;
+  expiresAt: string;
+};
+
+export async function createInvite(tenantId: string, email: string, role: string): Promise<CreateInviteResponse> {
+  return apiRequest<CreateInviteResponse>(`/api/tenants/${encodeURIComponent(tenantId)}/invites`, {
+    method: 'POST',
+    body: { email, role }
+  });
+}
+
+export type CurrentUserMembership = {
+  tenantId: string;
+  tenantName: string;
+  role: string;
+};
+
+export type CurrentUserResponse = {
+  userId: string;
+  email: string;
+  currentTenantId: string | null;
+  role: string | null;
+  memberships: CurrentUserMembership[];
+};
+
+export async function getCurrentUser(): Promise<CurrentUserResponse> {
+  return apiRequest<CurrentUserResponse>('/api/auth/me', {
+    method: 'GET'
+  });
+}
+
+export type SwitchTenantResponse = {
+  token: string;
+  tenantId: string;
+  role: string;
+};
+
+type RawSwitchTenantResponse = {
+  token: string;
+  tenantId: string;
+  role?: string;
+  roles?: string[];
+};
+
+export async function switchTenant(tenantId: string): Promise<SwitchTenantResponse> {
+  const raw = await apiRequest<RawSwitchTenantResponse>('/api/auth/switch-tenant', {
+    method: 'POST',
+    body: { tenantId }
+  });
+
+  return {
+    token: raw.token,
+    tenantId: raw.tenantId,
+    role: raw.role ?? raw.roles?.[0] ?? ''
+  };
+}
+
+export type TenantMember = {
+  userId: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+};
+
+export async function getTenantMembers(tenantId: string): Promise<TenantMember[]> {
+  return apiRequest<TenantMember[]>(`/api/tenants/${encodeURIComponent(tenantId)}/members`, {
+    method: 'GET'
+  });
+}
+
+export type TenantInvite = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  token: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export async function getTenantInvites(tenantId: string): Promise<TenantInvite[]> {
+  return apiRequest<TenantInvite[]>(`/api/tenants/${encodeURIComponent(tenantId)}/invites`, {
+    method: 'GET'
+  });
+}
+
+export async function revokeTenantInvite(tenantId: string, inviteId: string): Promise<void> {
+  await apiRequest<void>(`/api/tenants/${encodeURIComponent(tenantId)}/invites/${encodeURIComponent(inviteId)}/revoke`, {
+    method: 'POST'
+  });
+}
+

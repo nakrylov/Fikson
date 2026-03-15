@@ -4,6 +4,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { ApiError } from '../api/api';
 import { useAuth } from '../hooks/useAuth';
+import { t } from '../i18n';
 
 /**
  * /login
@@ -29,9 +30,9 @@ export function LoginPage() {
       // Requirement: show "Invalid credentials" on error.
       // (We intentionally keep it simple, but still handle non-401 errors gracefully.)
       if (err instanceof ApiError && (err.status === 401 || err.status === 400)) {
-        setError('Invalid credentials');
+        setError(t.auth.invalidCredentials);
       } else {
-        setError('Invalid credentials');
+        setError(t.auth.invalidCredentials);
         console.error(err);
       }
     } finally {
@@ -41,33 +42,41 @@ export function LoginPage() {
 
   return (
     <div>
-      <h2>Fixon Login</h2>
+      <h2>{t.auth.loginTitle}</h2>
 
       {isAuthenticated ? (
         <div>
-          <div>Authenticated</div>
-          <div>tenantId: {tenantId ?? '(unknown)'}</div>
-          <div>role: {role ?? '(unknown)'}</div>
-          <Button type="button" onClick={() => logout()} label="Logout" />
-          <Button type="button" onClick={() => navigate('/contracts')} label="Go to contracts" />
+          <div>{t.auth.authenticated}</div>
+          <div>
+            {t.auth.tenantIdLabel}: {tenantId ?? t.common.unknown}
+          </div>
+          <div>
+            {t.auth.roleLabel}: {role ?? t.common.unknown}
+          </div>
+          <Button type="button" onClick={() => logout()} label={t.common.logout} />
+          <Button type="button" onClick={() => navigate('/contracts')} label={t.auth.goToContracts} />
         </div>
       ) : (
         <form onSubmit={onSubmit}>
           <Input
-            label="Email"
+            label={t.auth.email}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username"
           />
           <Input
-            label="Password"
+            label={t.auth.password}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
           />
 
-          <Button type="submit" disabled={loading} label={loading ? 'Signing in…' : 'Sign in'} />
+          <Button
+            type="submit"
+            disabled={loading}
+            label={loading ? t.auth.signingIn : t.auth.signIn}
+          />
 
           {error ? <div style={{ color: 'red' }}>{error}</div> : null}
         </form>

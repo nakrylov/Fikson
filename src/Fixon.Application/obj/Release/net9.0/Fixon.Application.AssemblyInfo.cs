@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fixon.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3ae315deea83f970f0001bb66001dd2e265c46e1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0a0baca51d46846f29ba06823bd22fcc4a8a5086")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fixon.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fixon.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

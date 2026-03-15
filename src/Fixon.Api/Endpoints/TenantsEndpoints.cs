@@ -82,6 +82,55 @@ public static class TenantsEndpoints
             role = role
         });
     }
+
+    /// <summary>
+    /// GET /api/tenants/{tenantId}/members
+    /// Returns tenant memberships for current tenant. Admin only.
+    /// </summary>
+    public static async Task<IResult> GetTenantMembers(
+        [FromRoute] Guid tenantId,
+        ClaimsPrincipal user,
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var tenantIdClaim = user.FindFirst(FixonClaims.TenantId)?.Value;
+        if (string.IsNullOrWhiteSpace(tenantIdClaim) || !Guid.TryParse(tenantIdClaim, out var currentTenantId))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        if (tenantId != currentTenantId)
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var roleClaim = user.FindFirst(FixonClaims.Role)?.Value;
+        if (!string.Equals(roleClaim, MembershipRole.Admin.ToString(), StringComparison.Ordinal))
+        {
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        }
+
+        var members = await db.UserTenantMemberships
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.TenantId == tenantId)
+            .Join(
+                db.Users.IgnoreQueryFilters().AsNoTracking(),
+                m => m.UserId,
+                u => u.Id,
+                (m, u) => new TenantMemberDto
+                {
+                    UserId = u.Id,
+                    Email = u.Email,
+                    Role = m.Role.ToString(),
+                    Status = m.Status.ToString(),
+                    CreatedAt = m.CreatedAt
+                })
+            .OrderBy(x => x.Email)
+            .ToListAsync(ct);
+
+        return Results.Ok(members);
+    }
 }
 
 public sealed class CreateTenantRequest
@@ -92,5 +141,14 @@ public sealed class CreateTenantRequest
     /// Optional override; defaults to 1000 for Free plan.
     /// </summary>
     public int? MonthlyUsageLimit { get; set; }
+}
+
+public sealed class TenantMemberDto
+{
+    public Guid UserId { get; set; }
+    public string Email { get; set; } = null!;
+    public string Role { get; set; } = null!;
+    public string Status { get; set; } = null!;
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
