@@ -82,6 +82,56 @@ public static class ContractsEndpoints
         });
     }
 
+    [Authorize(Policy = Permissions.ContractsRead)]
+    public static async Task<IResult> GetDashboard(
+        [FromRoute] Guid contractId,
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var contractExists = await db.Contracts
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == contractId, ct);
+        if (!contractExists) return Results.NotFound();
+
+        var totalClaims = await db.Claims
+            .AsNoTracking()
+            .Where(x => x.ContractId == contractId)
+            .CountAsync(ct);
+
+        var totalPenalty = await db.Claims
+            .AsNoTracking()
+            .Where(x => x.ContractId == contractId)
+            .Select(x => (decimal?)x.Amount)
+            .SumAsync(ct) ?? 0m;
+
+        var shipmentPayloads = await (
+            from claim in db.Claims.AsNoTracking()
+            join violation in db.SlaViolations.AsNoTracking() on claim.SlaViolationId equals violation.Id
+            where claim.ContractId == contractId
+            select violation.CalculatedValuesJson
+        ).ToListAsync(ct);
+
+        var shipmentsAffected = shipmentPayloads
+            .Select(ExtractShipmentId)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        var lastImportDate = await db.FactImports
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => (DateTimeOffset?)x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        return Results.Ok(new
+        {
+            totalClaims,
+            totalPenalty,
+            shipmentsAffected,
+            lastImportDate
+        });
+    }
+
     /// <summary>
     /// POST /api/contracts
     /// Создание нового контракта.
@@ -599,6 +649,25 @@ FOR UPDATE")
         }
 
         return uint.TryParse(s, out version);
+    }
+
+    private static string? ExtractShipmentId(string calculatedValuesJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(calculatedValuesJson);
+            if (doc.RootElement.TryGetProperty("shipmentId", out var shipmentProp) &&
+                shipmentProp.ValueKind == JsonValueKind.String)
+            {
+                return shipmentProp.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Keep null if payload doesn't have expected schema.
+        }
+
+        return null;
     }
 }
 

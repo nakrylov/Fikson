@@ -523,6 +523,38 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.ToTable("facts", (string)null);
                 });
 
+            modelBuilder.Entity("Fixon.Domain.Facts.FactImport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ClaimsGenerated")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<int>("RowsImported")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "CreatedAt");
+
+                    b.ToTable("fact_imports", (string)null);
+                });
+
             modelBuilder.Entity("Fixon.Domain.Imports.ImportBatch", b =>
                 {
                     b.Property<Guid>("Id")

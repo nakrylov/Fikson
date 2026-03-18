@@ -44,6 +44,66 @@ export const en: typeof ru = {
     copySuccess: 'Invite link copied',
     revokeSuccess: 'Invite revoked',
     revokeError: 'Failed to revoke invite'
+  },
+  contracts: {
+    ...ru.contracts,
+    edit: 'Edit',
+    save: 'Save',
+    cancel: 'Cancel',
+    conflictError: 'This contract was modified by another user. Please reload.',
+    versions: 'Versions',
+    createVersion: 'Create version',
+    signVersion: 'Sign version',
+    activateVersion: 'Activate version',
+    versionNumber: 'Version',
+    status: 'Status',
+    createdAt: 'Created at'
+  },
+  rules: {
+    ...ru.rules,
+    title: 'SLA rules',
+    metric: 'Metric',
+    operator: 'Operator',
+    threshold: 'Threshold',
+    penalty: 'Penalty amount',
+    create: 'Create rule',
+    delete: 'Delete',
+    empty: 'No rules'
+  },
+  claims: {
+    ...ru.claims,
+    title: 'Claims',
+    summaryTitle: 'Summary',
+    totalClaims: 'Total claims',
+    totalPenalty: 'Total penalties',
+    shipment: 'Shipment',
+    rule: 'Rule',
+    penalty: 'Penalty',
+    created: 'Created at',
+    empty: 'No claims',
+    openPage: 'Open claims page'
+  },
+  imports: {
+    ...ru.imports,
+    title: 'Fact imports',
+    openPage: 'Open imports page',
+    selectFile: 'CSV file',
+    upload: 'Upload',
+    uploading: 'Uploading…',
+    historyTitle: 'Import history',
+    file: 'File',
+    rows: 'Rows imported',
+    claims: 'Claims generated',
+    date: 'Created at',
+    empty: 'No imports yet'
+  },
+  dashboard: {
+    ...ru.dashboard,
+    title: 'Contract dashboard',
+    totalPenalty: 'Total penalties',
+    totalClaims: 'Total violations',
+    shipments: 'Shipments affected',
+    lastImport: 'Last import'
   }
 };
 

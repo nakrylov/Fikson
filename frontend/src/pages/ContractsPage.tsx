@@ -228,6 +228,12 @@ export function ContractsPage() {
         <button type="button" onClick={() => setShowCreate((v) => !v)}>
           {t.contracts.createContract}
         </button>
+        <button type="button" onClick={() => navigate('/claims')}>
+          {t.claims.openPage}
+        </button>
+        <button type="button" onClick={() => navigate('/imports')}>
+          {t.imports.openPage}
+        </button>
         {role === 'Admin' ? (
           <button type="button" onClick={() => navigate('/members')}>
             {t.members.openPage}

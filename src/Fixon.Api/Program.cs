@@ -19,6 +19,7 @@ using Fixon.Application.Bootstrap;
 using Fixon.Infrastructure.Bootstrap;
 using Fixon.Domain.Companies;
 using Fixon.Domain.Users;
+using Fixon.Api.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -79,6 +80,7 @@ else
     // Full app mode
     builder.Services.AddTenancyWithPublicEndpoints();
     builder.Services.AddFixonAuthentication(builder.Configuration);
+    builder.Services.AddScoped<SlaEvaluationService>();
 
     // Background jobs (hosted polling worker)
     builder.Services.AddBackgroundJobs(options =>
@@ -317,6 +319,8 @@ else
 
     tenantApi.MapGet("/contracts/{contractId:guid}", ContractsEndpoints.GetContract)
         .RequireAuthorization(Permissions.ContractsRead);
+    tenantApi.MapGet("/contracts/{contractId:guid}/dashboard", ContractsEndpoints.GetDashboard)
+        .RequireAuthorization(Permissions.ContractsRead);
 
     tenantApi.MapPost("/contracts", ContractsEndpoints.CreateContract)
         .RequireAuthorization(Permissions.ContractsManage);
@@ -342,6 +346,10 @@ else
     tenantApi.MapPost("/contracts/{contractId:guid}/terminate", ContractsEndpoints.TerminateContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
+    // Evaluation
+    tenantApi.MapPost("/evaluation/run", EvaluationEndpoints.RunEvaluation)
+        .RequireAuthorization(Permissions.ClaimsManage);
+
     // Reporting endpoints (read-only)
     tenantApi.MapGet("/reports/sla-compliance", ReportsEndpoints.GetSlaCompliance)
         .RequireAuthorization(Permissions.SlaView);
@@ -353,6 +361,12 @@ else
         .RequireAuthorization(Permissions.AuditRead);
 
     // Imports (two-phase: upload → validate → commit)
+    tenantApi.MapPost("/imports/facts", FactsImportEndpoints.ImportFacts)
+        .RequireAuthorization(Permissions.ImportsUpload)
+        .DisableAntiforgery();
+    tenantApi.MapGet("/imports", FactsImportEndpoints.GetImportHistory)
+        .RequireAuthorization(Permissions.ImportsUpload);
+
     tenantApi.MapPost("/imports/facts/upload", ImportsEndpoints.UploadFactsImport)
         .RequireAuthorization(Permissions.ImportsUpload);
 
@@ -369,6 +383,11 @@ else
         .RequireAuthorization(Permissions.ImportsUpload);
 
     // Claims lifecycle
+    tenantApi.MapGet("/claims", ClaimsEndpoints.GetClaims)
+        .RequireAuthorization(Permissions.ClaimsRead);
+    tenantApi.MapGet("/claims/summary", ClaimsEndpoints.GetClaimsSummary)
+        .RequireAuthorization(Permissions.ClaimsRead);
+
     tenantApi.MapGet("/claims/{claimId:guid}", ClaimsEndpoints.GetClaim)
         .RequireAuthorization(Permissions.ClaimsRead);
 

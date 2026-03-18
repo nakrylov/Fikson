@@ -8,6 +8,8 @@ import { JoinInvitePage } from './pages/JoinInvitePage';
 import { TenantBootstrapPage } from './pages/TenantBootstrapPage';
 import { TenantMembersPage } from './pages/TenantMembersPage';
 import { TenantInvitesPage } from './pages/TenantInvitesPage';
+import { ClaimsPage } from './pages/ClaimsPage';
+import { FactImportPage } from './pages/FactImportPage';
 
 /**
  * App routes:
@@ -51,6 +53,22 @@ export function App() {
         element={
           <ProtectedRoute>
             <TenantInvitesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/imports"
+        element={
+          <ProtectedRoute>
+            <FactImportPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/claims"
+        element={
+          <ProtectedRoute>
+            <ClaimsPage />
           </ProtectedRoute>
         }
       />

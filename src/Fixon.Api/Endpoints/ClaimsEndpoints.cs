@@ -14,6 +14,58 @@ namespace Fixon.Api.Endpoints;
 public static class ClaimsEndpoints
 {
     [Authorize(Policy = Permissions.ClaimsRead)]
+    public static async Task<IResult> GetClaims(
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var items = await (
+            from claim in db.Claims.AsNoTracking()
+            join ruleVersion in db.SlaRuleVersions.AsNoTracking() on claim.SlaRuleVersionId equals ruleVersion.Id
+            join violation in db.SlaViolations.AsNoTracking() on claim.SlaViolationId equals violation.Id
+            orderby claim.OpenedAt descending
+            select new
+            {
+                id = claim.Id,
+                shipmentId = ExtractShipmentId(violation.CalculatedValuesJson),
+                ruleId = ruleVersion.SlaRuleId,
+                penaltyAmount = claim.Amount,
+                createdAt = claim.OpenedAt
+            })
+            .ToListAsync(ct);
+
+        return Results.Ok(items);
+    }
+
+    [Authorize(Policy = Permissions.ClaimsRead)]
+    public static async Task<IResult> GetClaimsSummary(
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var totalClaims = await db.Claims.AsNoTracking().CountAsync(ct);
+        var totalPenalty = await db.Claims.AsNoTracking().SumAsync(x => x.Amount, ct);
+
+        var byRule = await (
+            from claim in db.Claims.AsNoTracking()
+            join ruleVersion in db.SlaRuleVersions.AsNoTracking() on claim.SlaRuleVersionId equals ruleVersion.Id
+            group claim by ruleVersion.SlaRuleId
+            into g
+            select new
+            {
+                ruleId = g.Key,
+                count = g.Count(),
+                penalty = g.Sum(x => x.Amount)
+            })
+            .ToListAsync(ct);
+
+        return Results.Ok(new
+        {
+            totalClaims,
+            totalPenalty,
+            byRule
+        });
+    }
+
+    [Authorize(Policy = Permissions.ClaimsRead)]
     public static async Task<IResult> GetClaim(
         [FromRoute] Guid claimId,
         FixonDbContext db,
@@ -349,6 +401,25 @@ public static class ClaimsEndpoints
             DetailsJson: JsonSerializer.Serialize(new { claimId })), ct);
 
         return Results.Ok(new { claimId, claim.Status });
+    }
+
+    private static string? ExtractShipmentId(string calculatedValuesJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(calculatedValuesJson);
+            if (doc.RootElement.TryGetProperty("shipmentId", out var shipmentProp) &&
+                shipmentProp.ValueKind == JsonValueKind.String)
+            {
+                return shipmentProp.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Keep null when payload does not contain expected schema.
+        }
+
+        return null;
     }
 }
 

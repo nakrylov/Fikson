@@ -42,6 +42,7 @@ public sealed class FixonDbContext : DbContext
     public DbSet<SlaRule> SlaRules => Set<SlaRule>();
     public DbSet<SlaRuleVersion> SlaRuleVersions => Set<SlaRuleVersion>();
     public DbSet<Fact> Facts => Set<Fact>();
+    public DbSet<FactImport> FactImports => Set<FactImport>();
     public DbSet<SlaEvaluation> SlaEvaluations => Set<SlaEvaluation>();
     public DbSet<SlaViolation> SlaViolations => Set<SlaViolation>();
     public DbSet<Claim> Claims => Set<Claim>();

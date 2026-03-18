@@ -234,3 +234,265 @@ export async function revokeTenantInvite(tenantId: string, inviteId: string): Pr
   });
 }
 
+export type ContractDetailsResponse = {
+  id: string;
+  name: string;
+  counterpartyId: string;
+  status: number | string;
+  createdAt: string;
+  currentVersionId?: string | null;
+};
+
+export type ContractDashboard = {
+  totalClaims: number;
+  totalPenalty: number;
+  shipmentsAffected: number;
+  lastImportDate: string | null;
+};
+
+export async function getContractDashboard(contractId: string): Promise<ContractDashboard> {
+  return apiRequest<ContractDashboard>(`/api/contracts/${encodeURIComponent(contractId)}/dashboard`, {
+    method: 'GET'
+  });
+}
+
+export async function getContractDetailsWithEtag(
+  contractId: string
+): Promise<{ contract: ContractDetailsResponse; etag: string | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/api/contracts/${encodeURIComponent(contractId)}`;
+
+  const headers = new Headers();
+  headers.set('Accept', 'application/json');
+
+  const token = getStoredToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const res = await fetch(url, { method: 'GET', headers });
+
+  if (res.status === 401) {
+    clearStoredToken();
+    if (window.location.pathname !== '/login') window.location.href = '/login';
+    throw new ApiError('Unauthorized', 401, null);
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+  const isJson = contentType.includes('application/json');
+  const payload = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
+
+  if (!res.ok) {
+    throw new ApiError(`Request failed (${res.status})`, res.status, payload);
+  }
+
+  return {
+    contract: payload as ContractDetailsResponse,
+    etag: res.headers.get('ETag')
+  };
+}
+
+export async function updateContractName(contractId: string, name: string, etag: string): Promise<void> {
+  await apiRequest<void>(`/api/contracts/${encodeURIComponent(contractId)}`, {
+    method: 'PUT',
+    headers: {
+      'If-Match': etag
+    },
+    body: {
+      name
+    }
+  });
+}
+
+export type ContractVersion = {
+  id: string;
+  versionNumber: number;
+  status: string;
+  createdAt: string;
+  signedAt?: string;
+  activatedAt?: string;
+};
+
+type RawContractVersion = {
+  id: string;
+  versionNumber: number;
+  status: string | number;
+  createdAt: string;
+  signedAt?: string;
+};
+
+type RawContractHistoryResponse = {
+  contract: ContractDetailsResponse;
+  versions: RawContractVersion[];
+};
+
+export type ContractHistoryResponse = {
+  contract: ContractDetailsResponse;
+  versions: ContractVersion[];
+};
+
+function normalizeContractVersionStatus(status: string | number): string {
+  if (typeof status === 'string') return status;
+  if (status === 1) return 'Draft';
+  if (status === 2) return 'Signed';
+  if (status === 3) return 'Archived';
+  return String(status);
+}
+
+export async function getContractHistory(contractId: string): Promise<ContractHistoryResponse> {
+  const raw = await apiRequest<RawContractHistoryResponse>(`/api/contracts/${encodeURIComponent(contractId)}/history`, {
+    method: 'GET'
+  });
+
+  return {
+    contract: raw.contract,
+    versions: (raw.versions ?? []).map((v) => ({
+      id: v.id,
+      versionNumber: v.versionNumber,
+      status: normalizeContractVersionStatus(v.status),
+      createdAt: v.createdAt,
+      signedAt: v.signedAt
+    }))
+  };
+}
+
+export async function createContractVersion(contractId: string): Promise<void> {
+  await apiRequest<void>(`/api/contracts/${encodeURIComponent(contractId)}/versions`, {
+    method: 'POST',
+    body: {
+      effectiveFromUtc: new Date().toISOString()
+    }
+  });
+}
+
+export async function signContractVersion(contractId: string, versionId: string): Promise<void> {
+  await apiRequest<void>(`/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/sign`, {
+    method: 'POST'
+  });
+}
+
+export async function activateContractVersion(contractId: string, versionId: string): Promise<void> {
+  await apiRequest<void>(`/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/activate`, {
+    method: 'POST'
+  });
+}
+
+export type SlaRule = {
+  id: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  penaltyAmount: number;
+};
+
+export async function getSlaRules(contractId: string, versionId: string): Promise<SlaRule[]> {
+  return apiRequest<SlaRule[]>(
+    `/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/rules`,
+    {
+      method: 'GET'
+    }
+  );
+}
+
+export async function createSlaRule(
+  contractId: string,
+  versionId: string,
+  rule: Omit<SlaRule, 'id'>
+): Promise<void> {
+  await apiRequest<void>(
+    `/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/rules`,
+    {
+      method: 'POST',
+      body: rule
+    }
+  );
+}
+
+export async function deleteSlaRule(contractId: string, versionId: string, ruleId: string): Promise<void> {
+  await apiRequest<void>(
+    `/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/rules/${encodeURIComponent(ruleId)}`,
+    {
+      method: 'DELETE'
+    }
+  );
+}
+
+export type FactImport = {
+  id: string;
+  fileName: string;
+  rowsImported: number;
+  claimsGenerated: number;
+  createdAt: string;
+};
+
+export async function getFactImports(): Promise<FactImport[]> {
+  return apiRequest<FactImport[]>('/api/imports', { method: 'GET' });
+}
+
+export type ImportFactsResponse = {
+  imported: number;
+  claimsGenerated: number;
+};
+
+export async function uploadFacts(file: File): Promise<ImportFactsResponse> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/api/imports/facts`;
+  const headers = new Headers();
+  headers.set('Accept', 'application/json');
+
+  const token = getStoredToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData
+  });
+
+  if (res.status === 401) {
+    clearStoredToken();
+    if (window.location.pathname !== '/login') window.location.href = '/login';
+    throw new ApiError('Unauthorized', 401, null);
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+  const isJson = contentType.includes('application/json');
+  const payload = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
+
+  if (!res.ok) {
+    throw new ApiError(`Request failed (${res.status})`, res.status, payload);
+  }
+
+  return payload as ImportFactsResponse;
+}
+
+export type Claim = {
+  id: string;
+  shipmentId: string | null;
+  ruleId: string;
+  penaltyAmount: number;
+  createdAt: string;
+};
+
+export async function getClaims(): Promise<Claim[]> {
+  return apiRequest<Claim[]>('/api/claims', { method: 'GET' });
+}
+
+export type ClaimsSummary = {
+  totalClaims: number;
+  totalPenalty: number;
+  byRule: Array<{
+    ruleId: string;
+    count: number;
+    penalty: number;
+  }>;
+};
+
+export async function getClaimsSummary(): Promise<ClaimsSummary> {
+  return apiRequest<ClaimsSummary>('/api/claims/summary', { method: 'GET' });
+}
