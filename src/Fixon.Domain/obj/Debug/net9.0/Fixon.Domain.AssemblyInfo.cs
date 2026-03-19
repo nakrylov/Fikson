@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fixon.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+04cfba83705d022a9d29d71177d62ab39dd30f6c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+30afc7b110b9c38717b7452f53f6754d38f54337")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fixon.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fixon.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
