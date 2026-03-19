@@ -140,12 +140,32 @@ export async function createTenant(name: string): Promise<CreateTenantResponse> 
   });
 }
 
+export type Counterparty = {
+  id: string;
+  name: string;
+};
+
+export async function getCounterparties(): Promise<Counterparty[]> {
+  return apiRequest<Counterparty[]>('/api/counterparties', {
+    method: 'GET'
+  });
+}
+
+export async function createCounterparty(name: string): Promise<Counterparty> {
+  return apiRequest<Counterparty>('/api/counterparties', {
+    method: 'POST',
+    body: { name }
+  });
+}
+
 export type CreateInviteResponse = {
   inviteToken: string;
   expiresAt: string;
 };
 
-export async function createInvite(tenantId: string, email: string, role: string): Promise<CreateInviteResponse> {
+export type MembershipRoleId = 0 | 1 | 2;
+
+export async function createInvite(tenantId: string, email: string, role: MembershipRoleId): Promise<CreateInviteResponse> {
   return apiRequest<CreateInviteResponse>(`/api/tenants/${encodeURIComponent(tenantId)}/invites`, {
     method: 'POST',
     body: { email, role }

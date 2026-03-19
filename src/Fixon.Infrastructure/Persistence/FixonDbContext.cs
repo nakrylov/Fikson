@@ -130,7 +130,7 @@ public sealed class FixonDbContext : DbContext
         where TEntity : TenantEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(e => _bypassTenantFilter || (_companyId != null && e.CompanyId == _companyId.Value));
+            .HasQueryFilter(e => _bypassTenantFilter || (_companyId.HasValue && e.CompanyId == _companyId.GetValueOrDefault()));
     }
 
     private void ApplyTenantAndIsActiveFilter<TEntity>(ModelBuilder modelBuilder)
@@ -138,7 +138,7 @@ public sealed class FixonDbContext : DbContext
     {
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(e =>
-                (_bypassTenantFilter || (_companyId != null && e.CompanyId == _companyId.Value))
+                (_bypassTenantFilter || (_companyId.HasValue && e.CompanyId == _companyId.GetValueOrDefault()))
                 && (_bypassIsActiveFilter || e.IsActive));
     }
 
@@ -147,13 +147,13 @@ public sealed class FixonDbContext : DbContext
         modelBuilder.Entity<UserRole>()
             .HasQueryFilter(ur =>
                 _bypassTenantFilter
-                || (_companyId != null && ur.User != null && ur.User.CompanyId.HasValue && ur.User.CompanyId.Value == _companyId.Value));
+                || (_companyId.HasValue && ur.User != null && ur.User.CompanyId.HasValue && ur.User.CompanyId.Value == _companyId.GetValueOrDefault()));
     }
 
     private void ApplyUserTenantMembershipFilter(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<UserTenantMembership>()
-            .HasQueryFilter(m => _bypassTenantFilter || (_companyId != null && m.TenantId == _companyId.Value));
+            .HasQueryFilter(m => _bypassTenantFilter || (_companyId.HasValue && m.TenantId == _companyId.GetValueOrDefault()));
     }
 
     private void InvokeGeneric(string methodName, Type clrType, ModelBuilder modelBuilder)

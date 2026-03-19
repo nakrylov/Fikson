@@ -1,6 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ApiError, apiRequest, createInvite, CreateInviteResponse, switchTenant } from '../api/api';
+import {
+  ApiError,
+  apiRequest,
+  Counterparty,
+  createCounterparty,
+  createInvite,
+  CreateInviteResponse,
+  getCounterparties,
+  switchTenant
+} from '../api/api';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../i18n';
 
@@ -29,6 +38,7 @@ type ContractsListResponse = {
 export function ContractsPage() {
   const { tenantId, role, memberships, setToken, logout } = useAuth();
   const navigate = useNavigate();
+  const counterpartyDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -39,9 +49,17 @@ export function ContractsPage() {
   const [createCounterpartyId, setCreateCounterpartyId] = useState<string>('');
   const [createLoading, setCreateLoading] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
+  const [loadingCounterparties, setLoadingCounterparties] = useState<boolean>(false);
+  const [counterpartyError, setCounterpartyError] = useState<string | null>(null);
+  const [counterpartyQuery, setCounterpartyQuery] = useState<string>('');
+  const [filteredCounterparties, setFilteredCounterparties] = useState<Counterparty[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const [isCreatingInline, setIsCreatingInline] = useState<boolean>(false);
 
   const [inviteEmail, setInviteEmail] = useState<string>('');
-  const [inviteRole, setInviteRole] = useState<'Member' | 'Viewer'>('Member');
+  // Backend expects numeric enum ids: Admin=0, Member=1, Viewer=2.
+  const [inviteRole, setInviteRole] = useState<'1' | '2'>('1');
   const [inviteLoading, setInviteLoading] = useState<boolean>(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteResult, setInviteResult] = useState<CreateInviteResponse | null>(null);
@@ -83,14 +101,71 @@ export function ContractsPage() {
     void loadContracts();
   }, [loadContracts]);
 
+  const loadCounterparties = useCallback(async () => {
+    setLoadingCounterparties(true);
+    setCounterpartyError(null);
+    try {
+      const items = await getCounterparties();
+      setCounterparties(items);
+      setFilteredCounterparties(items);
+      if (!createCounterpartyId && items.length > 0) {
+        setCreateCounterpartyId(items[0].id);
+      }
+    } catch (e: unknown) {
+      if (e instanceof ApiError) {
+        if (e.status === 403) setCounterpartyError(t.common.forbidden);
+        else if (e.status >= 500) setCounterpartyError(t.common.serverError);
+        else setCounterpartyError(t.common.requestFailed);
+      } else {
+        setCounterpartyError(t.common.requestFailed);
+      }
+    } finally {
+      setLoadingCounterparties(false);
+    }
+  }, [createCounterpartyId]);
+
+  useEffect(() => {
+    void loadCounterparties();
+  }, [loadCounterparties]);
+
   useEffect(() => {
     setSelectedTenantId(tenantId ?? '');
   }, [tenantId]);
+
+  useEffect(() => {
+    const query = counterpartyQuery.trim().toLowerCase();
+    if (!query) {
+      setFilteredCounterparties(counterparties);
+      return;
+    }
+
+    setFilteredCounterparties(
+      counterparties.filter((cp) => cp.name.toLowerCase().includes(query))
+    );
+  }, [counterpartyQuery, counterparties]);
+
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (!counterpartyDropdownRef.current) return;
+      if (!counterpartyDropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+    };
+  }, []);
 
   const onCreateSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setCreateError(null);
+      if (!createCounterpartyId) {
+        setCreateError(t.common.validationError);
+        return;
+      }
       setCreateLoading(true);
       try {
         const idempotencyKey = crypto.randomUUID();
@@ -110,6 +185,7 @@ export function ContractsPage() {
         await loadContracts();
         setCreateName('');
         setCreateCounterpartyId('');
+        setCounterpartyQuery('');
         setShowCreate(false);
       } catch (e2: unknown) {
         if (e2 instanceof ApiError) {
@@ -127,12 +203,62 @@ export function ContractsPage() {
     [createName, createCounterpartyId, loadContracts]
   );
 
+  const onSelectCounterparty = useCallback((counterparty: Counterparty) => {
+    setCreateCounterpartyId(counterparty.id);
+    setCounterpartyQuery(counterparty.name);
+    setIsDropdownOpen(false);
+  }, []);
+
+  const onCreateCounterpartyInline = useCallback(async () => {
+    const name = counterpartyQuery.trim();
+    if (name.length < 2) {
+      setCounterpartyError(t.common.validationError);
+      return;
+    }
+
+    setCounterpartyError(null);
+    setIsCreatingInline(true);
+    try {
+      const created = await createCounterparty(name);
+      await loadCounterparties();
+      setCreateCounterpartyId(created.id);
+      setCounterpartyQuery('');
+      setIsDropdownOpen(false);
+    } catch (e: unknown) {
+      if (e instanceof ApiError) {
+        if (e.status === 400) setCounterpartyError(t.common.validationError);
+        else if (e.status === 403) setCounterpartyError(t.common.forbidden);
+        else if (e.status >= 500) setCounterpartyError(t.common.serverError);
+        else setCounterpartyError(t.common.requestFailed);
+      } else {
+        setCounterpartyError(t.common.requestFailed);
+      }
+    } finally {
+      setIsCreatingInline(false);
+    }
+  }, [counterpartyQuery, loadCounterparties]);
+
   const tableRows = useMemo(() => contracts, [contracts]);
 
   const joinLink = useMemo(() => {
     if (!inviteResult) return null;
     return `${window.location.origin}/join?token=${inviteResult.inviteToken}`;
   }, [inviteResult]);
+
+  const hasExactCounterpartyMatch = useMemo(() => {
+    const query = counterpartyQuery.trim().toLowerCase();
+    if (!query) return false;
+    return counterparties.some((cp) => cp.name.trim().toLowerCase() === query);
+  }, [counterpartyQuery, counterparties]);
+
+  const selectedCounterpartyName = useMemo(() => {
+    if (!createCounterpartyId) return '';
+    return counterparties.find((cp) => cp.id === createCounterpartyId)?.name ?? '';
+  }, [createCounterpartyId, counterparties]);
+
+  const canSubmitContract = useMemo(() => {
+    return createName.trim().length > 0 && createCounterpartyId.trim().length > 0 && !createLoading;
+  }, [createName, createCounterpartyId, createLoading]);
 
   const onCreateInvite = useCallback(
     async (e: React.FormEvent) => {
@@ -154,7 +280,7 @@ export function ContractsPage() {
 
       setInviteLoading(true);
       try {
-        const resp = await createInvite(tenantId, email, inviteRole);
+        const resp = await createInvite(tenantId, email, Number(inviteRole) as 1 | 2);
         setInviteResult(resp);
       } catch (err: unknown) {
         if (err instanceof ApiError) {
@@ -209,38 +335,38 @@ export function ContractsPage() {
   }, [selectedTenantId, setToken, loadContracts]);
 
   return (
-    <div>
+    <div className="space-y-4">
       <h2>{t.contracts.title}</h2>
 
-      <div>
+      <div className="card">
         <div>
           {t.contracts.tenantIdFromJwt}: {tenantId ?? t.common.unknown}
         </div>
         <div>
           {t.contracts.roleFromJwt}: {role ?? t.common.unknown}
         </div>
-        <button type="button" onClick={() => logout()}>
+        <button type="button" className="btn-secondary" onClick={() => logout()}>
           {t.common.logout}
         </button>
-        <button type="button" onClick={() => void loadContracts()} disabled={loading}>
+        <button type="button" className="btn-secondary" onClick={() => void loadContracts()} disabled={loading}>
           {t.common.refresh}
         </button>
-        <button type="button" onClick={() => setShowCreate((v) => !v)}>
+        <button type="button" className="btn-primary" onClick={() => setShowCreate((v) => !v)}>
           {t.contracts.createContract}
         </button>
-        <button type="button" onClick={() => navigate('/claims')}>
+        <button type="button" className="btn-secondary" onClick={() => navigate('/claims')}>
           {t.claims.openPage}
         </button>
-        <button type="button" onClick={() => navigate('/imports')}>
+        <button type="button" className="btn-secondary" onClick={() => navigate('/imports')}>
           {t.imports.openPage}
         </button>
         {role === 'Admin' ? (
-          <button type="button" onClick={() => navigate('/members')}>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/members')}>
             {t.members.openPage}
           </button>
         ) : null}
         {role === 'Admin' ? (
-          <button type="button" onClick={() => navigate('/invites')}>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/invites')}>
             {t.invites.openPage}
           </button>
         ) : null}
@@ -264,6 +390,7 @@ export function ContractsPage() {
           </label>
           <button
             type="button"
+            className="btn-secondary"
             onClick={() => void onSwitchTenant()}
             disabled={switchLoading || !selectedTenantId}
           >
@@ -290,21 +417,84 @@ export function ContractsPage() {
             </label>
           </div>
           <div>
-            <label style={{ display: 'block' }}>
-              <div>{t.contracts.counterpartyId}</div>
-              <input
-                value={createCounterpartyId}
-                onChange={(ev) => setCreateCounterpartyId(ev.target.value)}
-                disabled={createLoading}
-                placeholder={t.contracts.guidPlaceholder}
-              />
-            </label>
+            <div ref={counterpartyDropdownRef}>
+              <label style={{ display: 'block' }}>
+                <div>{t.contracts.counterparty}</div>
+                <input
+                  value={counterpartyQuery}
+                  onFocus={() => setIsDropdownOpen(true)}
+                  onChange={(ev) => {
+                    setCounterpartyQuery(ev.target.value);
+                    setIsDropdownOpen(true);
+                  }}
+                  disabled={createLoading || loadingCounterparties}
+                  placeholder={selectedCounterpartyName || t.contracts.searchCompany}
+                />
+              </label>
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{t.contracts.selectOrCreateCompany}</div>
+              {isDropdownOpen ? (
+                <div
+                  style={{
+                    border: '1px solid #ccc',
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                    marginTop: 4
+                  }}
+                >
+                  {filteredCounterparties.map((cp) => (
+                    <div
+                      key={cp.id}
+                      onClick={() => onSelectCounterparty(cp)}
+                      style={{ padding: 8, cursor: 'pointer' }}
+                      onMouseEnter={(ev) => {
+                        ev.currentTarget.style.backgroundColor = '#f5f5f5';
+                      }}
+                      onMouseLeave={(ev) => {
+                        ev.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      {cp.name}
+                    </div>
+                  ))}
+                  {filteredCounterparties.length === 0 ? (
+                    <div style={{ padding: 8 }}>{t.contracts.noResults}</div>
+                  ) : null}
+                  {counterpartyQuery.trim().length > 0 && !hasExactCounterpartyMatch ? (
+                    <div
+                      onClick={() => {
+                        if (!isCreatingInline) void onCreateCounterpartyInline();
+                      }}
+                      style={{
+                        padding: 8,
+                        cursor: isCreatingInline ? 'not-allowed' : 'pointer',
+                        color: isCreatingInline ? '#999' : '#0a58ca',
+                        borderTop: '1px solid #eee',
+                        fontWeight: 600,
+                        backgroundColor: isCreatingInline ? '#fafafa' : '#eef5ff'
+                      }}
+                      onMouseEnter={(ev) => {
+                        if (!isCreatingInline) ev.currentTarget.style.backgroundColor = '#deecff';
+                      }}
+                      onMouseLeave={(ev) => {
+                        ev.currentTarget.style.backgroundColor = isCreatingInline ? '#fafafa' : '#eef5ff';
+                      }}
+                    >
+                      {isCreatingInline
+                        ? t.common.creating
+                        : `+ ${t.contracts.createCompany} "${counterpartyQuery.trim()}"`}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            {loadingCounterparties ? <div>{t.common.loading}</div> : null}
+            {counterpartyError ? <div style={{ color: 'red' }}>{counterpartyError}</div> : null}
           </div>
 
-          <button type="submit" disabled={createLoading}>
+          <button type="submit" className="btn-primary" disabled={!canSubmitContract}>
             {createLoading ? t.common.creating : t.common.submit}
           </button>
-          <button type="button" onClick={() => setShowCreate(false)} disabled={createLoading}>
+          <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)} disabled={createLoading}>
             {t.common.cancel}
           </button>
 
@@ -312,7 +502,8 @@ export function ContractsPage() {
         </form>
       ) : null}
 
-      <table>
+      <div className="table-wrap">
+        <table className="table-base">
         <thead>
           <tr>
             <th>{t.contracts.table.id}</th>
@@ -330,7 +521,7 @@ export function ContractsPage() {
               <td>{c.counterpartyId}</td>
               <td>{c.status ?? ''}</td>
               <td>
-                <button type="button" onClick={() => navigate(`/contract/${c.id}`)}>
+                <button type="button" className="btn-secondary" onClick={() => navigate(`/contract/${c.id}`)}>
                   {t.contracts.view}
                 </button>
               </td>
@@ -338,10 +529,11 @@ export function ContractsPage() {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Admin-only Invite UI */}
       {role === 'Admin' ? (
-        <div style={{ marginTop: 24 }}>
+        <div className="card" style={{ marginTop: 24 }}>
           <h3>{t.invite.inviteUserTitle}</h3>
 
           <form onSubmit={onCreateInvite}>
@@ -358,15 +550,15 @@ export function ContractsPage() {
               <div>{t.invite.role}</div>
               <select
                 value={inviteRole}
-                onChange={(ev) => setInviteRole(ev.target.value as 'Member' | 'Viewer')}
+                onChange={(ev) => setInviteRole(ev.target.value as '1' | '2')}
                 disabled={inviteLoading}
               >
-                <option value="Member">{t.invite.roleMember}</option>
-                <option value="Viewer">{t.invite.roleViewer}</option>
+                <option value="1">{t.invite.roleMember}</option>
+                <option value="2">{t.invite.roleViewer}</option>
               </select>
             </label>
 
-            <button type="submit" disabled={inviteLoading}>
+            <button type="submit" className="btn-primary" disabled={inviteLoading}>
               {inviteLoading ? t.common.creating : t.invite.createInvite}
             </button>
 
@@ -385,7 +577,7 @@ export function ContractsPage() {
                 {t.invite.joinLinkLabel}:{' '}
                 <code>{joinLink}</code>
               </div>
-              <button type="button" onClick={() => void onCopyInviteLink()} disabled={!joinLink}>
+              <button type="button" className="btn-secondary" onClick={() => void onCopyInviteLink()} disabled={!joinLink}>
                 {t.invite.copyInviteLink}
               </button>
               {copyStatus ? <div>{copyStatus}</div> : null}

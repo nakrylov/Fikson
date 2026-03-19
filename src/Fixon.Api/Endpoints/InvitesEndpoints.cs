@@ -1,6 +1,7 @@
 using System.Net.Mail;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using Fixon.Application.Emails;
 using Fixon.Api.Security;
 using Fixon.Domain.Companies;
 using Fixon.Domain.Users;
@@ -9,6 +10,8 @@ using Fixon.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace Fixon.Api.Endpoints;
 
@@ -115,6 +118,9 @@ public static class InvitesEndpoints
         [FromBody] CreateInviteRequest request,
         ClaimsPrincipal user,
         FixonDbContext db,
+        IEmailService emailService,
+        IConfiguration configuration,
+        ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
         // Ensure token tenant matches route tenant (no cross-tenant creation).
@@ -176,6 +182,23 @@ public static class InvitesEndpoints
 
         db.TenantInvites.Add(invite);
         await db.SaveChangesAsync(ct);
+
+        var frontendBaseUrl = (configuration["Frontend:BaseUrl"] ?? "http://localhost:5173").TrimEnd('/');
+        var joinLink = $"{frontendBaseUrl}/join?token={token}";
+        var subject = "You were invited to Fixon";
+        var body = $"You were invited to Fixon.{Environment.NewLine}{Environment.NewLine}Join link: {joinLink}";
+
+        try
+        {
+            using var emailCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            emailCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await emailService.SendAsync(invite.Email, subject, body, emailCts.Token);
+        }
+        catch (Exception ex)
+        {
+            var logger = loggerFactory.CreateLogger("InviteEmail");
+            logger.LogWarning(ex, "Failed to send invite email to {Email} for tenant {TenantId}", invite.Email, tenantId);
+        }
 
         return Results.Ok(new
         {

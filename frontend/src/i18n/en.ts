@@ -57,7 +57,14 @@ export const en: typeof ru = {
     activateVersion: 'Activate version',
     versionNumber: 'Version',
     status: 'Status',
-    createdAt: 'Created at'
+    createdAt: 'Created at',
+    counterparty: 'Counterparty',
+    addCompany: '+ Add company',
+    searchCompany: 'Search company',
+    noResults: 'No results',
+    createCompany: 'Create',
+    selectOrCreateCompany: 'Select existing company or create a new one.',
+    companyName: 'Company name'
   },
   rules: {
     ...ru.rules,
@@ -104,6 +111,15 @@ export const en: typeof ru = {
     totalClaims: 'Total violations',
     shipments: 'Shipments affected',
     lastImport: 'Last import'
+  },
+  nav: {
+    ...ru.nav,
+    contracts: 'Contracts',
+    claims: 'Claims',
+    imports: 'Imports',
+    members: 'Members',
+    invites: 'Invites',
+    logout: 'Logout'
   }
 };
 

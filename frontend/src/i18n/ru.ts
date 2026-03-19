@@ -75,6 +75,13 @@ export const ru = {
     versionNumber: 'Version',
     status: 'Status',
     createdAt: 'Created at',
+    counterparty: 'Counterparty',
+    addCompany: '+ Add company',
+    searchCompany: 'Search company',
+    noResults: 'No results',
+    createCompany: 'Create',
+    selectOrCreateCompany: 'Select existing company or create a new one.',
+    companyName: 'Company name',
     counterpartyId: 'CounterpartyId',
     guidPlaceholder: 'GUID',
     actions: 'actions',
@@ -179,6 +186,14 @@ export const ru = {
     totalClaims: 'Total violations',
     shipments: 'Shipments affected',
     lastImport: 'Last import'
+  },
+  nav: {
+    contracts: 'Contracts',
+    claims: 'Claims',
+    imports: 'Imports',
+    members: 'Members',
+    invites: 'Invites',
+    logout: 'Logout'
   },
   errors: {
     failedToLoadContracts: 'Request failed',

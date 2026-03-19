@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { ContractsPage } from './pages/ContractsPage';
 import { ContractDetailsPage } from './pages/ContractDetailsPage';
@@ -25,53 +26,37 @@ export function App() {
       <Route path="/welcome" element={<TenantBootstrapPage />} />
 
       <Route
-        path="/contracts"
         element={
           <ProtectedRoute>
-            <ContractsPage />
+            <Layout />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/contract/:id"
-        element={
-          <ProtectedRoute>
-            <ContractDetailsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/members"
-        element={
-          <ProtectedRoute>
-            <TenantMembersPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/invites"
-        element={
-          <ProtectedRoute>
-            <TenantInvitesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/imports"
-        element={
-          <ProtectedRoute>
-            <FactImportPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/claims"
-        element={
-          <ProtectedRoute>
-            <ClaimsPage />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route
+          path="/contracts"
+          element={<ContractsPage />}
+        />
+        <Route
+          path="/contract/:id"
+          element={<ContractDetailsPage />}
+        />
+        <Route
+          path="/members"
+          element={<TenantMembersPage />}
+        />
+        <Route
+          path="/invites"
+          element={<TenantInvitesPage />}
+        />
+        <Route
+          path="/imports"
+          element={<FactImportPage />}
+        />
+        <Route
+          path="/claims"
+          element={<ClaimsPage />}
+        />
+      </Route>
 
       <Route path="/" element={<Navigate to="/contracts" replace />} />
       <Route path="*" element={<Navigate to="/contracts" replace />} />

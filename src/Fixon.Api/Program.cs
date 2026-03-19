@@ -20,11 +20,15 @@ using Fixon.Infrastructure.Bootstrap;
 using Fixon.Domain.Companies;
 using Fixon.Domain.Users;
 using Fixon.Api.Services;
+using Fixon.Application.Emails;
+using Fixon.Infrastructure.Emails;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 var bootstrapOptions = builder.Configuration.GetSection("Bootstrap").Get<BootstrapOptions>() ?? new BootstrapOptions();
 
@@ -314,6 +318,11 @@ else
         .RequireAuthorization();
 
     // Protected endpoints
+    tenantApi.MapGet("/counterparties", CounterpartiesEndpoints.GetCounterparties)
+        .RequireAuthorization(Permissions.ContractsRead);
+    tenantApi.MapPost("/counterparties", CounterpartiesEndpoints.CreateCounterparty)
+        .RequireAuthorization(Permissions.ContractsManage);
+
     tenantApi.MapGet("/contracts", ContractsEndpoints.GetContracts)
         .RequireAuthorization(Permissions.ContractsRead);
 

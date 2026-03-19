@@ -449,3 +449,6 @@ C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Release\net9.0\Fixon.IntegrationT
 C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Release\net9.0\Fixon.IntegrationTests.genruntimeconfig.cache
 C:\dev\fikson\tests\Fixon.IntegrationTests\obj\Release\net9.0\ref\Fixon.IntegrationTests.dll
 C:\dev\fikson\tests\Fixon.IntegrationTests\bin\Release\net9.0\appsettings.Testing.json
+C:\dev\fikson\tests\Fixon.IntegrationTests\bin\Release\net9.0\BouncyCastle.Cryptography.dll
+C:\dev\fikson\tests\Fixon.IntegrationTests\bin\Release\net9.0\MailKit.dll
+C:\dev\fikson\tests\Fixon.IntegrationTests\bin\Release\net9.0\MimeKit.dll

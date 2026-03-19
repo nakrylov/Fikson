@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply border rounded px-3 py-2 w-full bg-white;
+  }
+
+  button {
+    @apply border px-4 py-2 rounded hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  table {
+    @apply w-full border rounded-lg overflow-hidden bg-white;
+  }
+
+  thead {
+    @apply bg-gray-50;
+  }
+
+  th,
+  td {
+    @apply p-3 text-left align-top border-b;
+  }
+
+  tbody tr:hover {
+    @apply bg-gray-50;
+  }
+}
+
+@layer components {
+  .page {
+    @apply max-w-5xl mx-auto p-4 space-y-4;
+  }
+
+  .card {
+    @apply bg-white border rounded-lg p-4 space-y-3;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border px-4 py-2 rounded hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .field-input {
+    @apply border rounded px-3 py-2 w-full;
+  }
+
+  .table-wrap {
+    @apply w-full border rounded-lg overflow-hidden bg-white;
+  }
+
+  .table-base {
+    @apply w-full;
+  }
+
+  .table-base thead {
+    @apply bg-gray-50;
+  }
+
+  .table-base th,
+  .table-base td {
+    @apply p-3 text-left align-top border-b;
+  }
+
+  .table-base tbody tr:hover {
+    @apply bg-gray-50;
+  }
+}
