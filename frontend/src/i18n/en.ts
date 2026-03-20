@@ -6,7 +6,7 @@ import { ru } from './ru';
  * For now we keep it 1:1 with `ru` keys to ensure type safety.
  * Replace values with proper translations later.
  */
-export const en: typeof ru = {
+export const en = {
   ...ru,
   tenant: {
     ...ru.tenant,
@@ -55,6 +55,10 @@ export const en: typeof ru = {
     createVersion: 'Create version',
     signVersion: 'Sign version',
     activateVersion: 'Activate version',
+    noActiveVersion: 'No active contract version',
+    createVersionHint: 'Create version',
+    signVersionHint: 'Sign version',
+    activateVersionHint: 'Activate version',
     versionNumber: 'Version',
     status: 'Status',
     createdAt: 'Created at',
@@ -73,6 +77,14 @@ export const en: typeof ru = {
     operator: 'Operator',
     threshold: 'Threshold',
     penalty: 'Penalty amount',
+    booleanCondition: 'Condition is true',
+    preview: 'Preview',
+    metrics: {
+      ...ru.rules.metrics,
+      deliveryDelay: 'Delivery delay',
+      temperature: 'Temperature breach',
+      missingDocs: 'Missing documents'
+    },
     create: 'Create rule',
     delete: 'Delete',
     empty: 'No rules'
@@ -94,6 +106,12 @@ export const en: typeof ru = {
     ...ru.imports,
     title: 'Fact imports',
     openPage: 'Open imports page',
+    downloadTemplate: 'Download template',
+    previewTitle: 'CSV preview',
+    confirmImport: 'Confirm import',
+    invalidFormat: 'Invalid CSV format. Required columns: shipmentId, factType, eventTime, value',
+    missingColumnsLabel: 'Missing required columns',
+    previewHint: '1) Select CSV file  2) Preview data  3) Confirm import',
     selectFile: 'CSV file',
     upload: 'Upload',
     uploading: 'Uploading…',
@@ -106,14 +124,18 @@ export const en: typeof ru = {
   },
   dashboard: {
     ...ru.dashboard,
-    title: 'Contract dashboard',
+    title: 'Dashboard',
+    contractTitle: 'Contract dashboard',
     totalPenalty: 'Total penalties',
     totalClaims: 'Total violations',
     shipments: 'Shipments affected',
-    lastImport: 'Last import'
+    lastImport: 'Last import',
+    recentImports: 'Recent imports',
+    quickActions: 'Quick actions'
   },
   nav: {
     ...ru.nav,
+    dashboard: 'Dashboard',
     contracts: 'Contracts',
     claims: 'Claims',
     imports: 'Imports',

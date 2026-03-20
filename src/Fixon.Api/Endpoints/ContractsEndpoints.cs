@@ -1,6 +1,7 @@
 using Fixon.Infrastructure.Auth;
 using Fixon.Infrastructure.Audit;
 using Fixon.Infrastructure.Persistence;
+using Fixon.Domain.Sla;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -384,6 +385,155 @@ FOR UPDATE")
         return Results.Ok(new { contract, versions });
     }
 
+    [Authorize(Policy = Permissions.ContractsRead)]
+    public static async Task<IResult> GetSlaRules(
+        [FromRoute] Guid contractId,
+        [FromRoute] Guid versionId,
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var versionExists = await db.ContractVersions
+            .AsNoTracking()
+            .AnyAsync(v => v.Id == versionId && v.ContractId == contractId, ct);
+        if (!versionExists) return Results.NotFound();
+
+        var rows = await (
+            from rule in db.SlaRules.AsNoTracking()
+            join ruleVersion in db.SlaRuleVersions.AsNoTracking() on rule.Id equals ruleVersion.SlaRuleId
+            where rule.ContractId == contractId
+                  && rule.IsActive
+                  && ruleVersion.IsActive
+            select new
+            {
+                rule.Id,
+                rule.Name,
+                ruleVersion.VersionNumber,
+                ruleVersion.ConditionJson,
+                ruleVersion.PenaltyJson
+            })
+            .ToListAsync(ct);
+
+        var latest = rows
+            .GroupBy(x => x.Id)
+            .Select(g => g.OrderByDescending(x => x.VersionNumber).First())
+            .Select(x => new
+            {
+                id = x.Id,
+                metric = TryReadString(x.ConditionJson, "metric") ?? x.Name,
+                @operator = TryReadString(x.ConditionJson, "operator") ?? ">",
+                threshold = TryReadDecimal(x.ConditionJson, "threshold") ?? 0m,
+                penaltyAmount = TryReadDecimal(x.PenaltyJson, "penaltyAmount")
+                    ?? TryReadDecimal(x.PenaltyJson, "Value")
+                    ?? TryReadDecimal(x.PenaltyJson, "value")
+                    ?? 0m
+            })
+            .OrderBy(x => x.metric)
+            .ToList();
+
+        return Results.Ok(latest);
+    }
+
+    [Authorize(Policy = Permissions.ContractsManage)]
+    public static async Task<IResult> CreateSlaRule(
+        [FromRoute] Guid contractId,
+        [FromRoute] Guid versionId,
+        [FromBody] CreateSlaRuleRequest request,
+        UserContext userContext,
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Metric))
+        {
+            return Results.BadRequest(new { error = "Metric is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Operator))
+        {
+            return Results.BadRequest(new { error = "Operator is required." });
+        }
+
+        var versionExists = await db.ContractVersions
+            .AsNoTracking()
+            .AnyAsync(v => v.Id == versionId && v.ContractId == contractId, ct);
+        if (!versionExists) return Results.NotFound();
+
+        var now = DateTimeOffset.UtcNow;
+        var rule = new SlaRule(
+            id: Guid.NewGuid(),
+            companyId: userContext.TenantId,
+            contractId: contractId,
+            name: request.Metric.Trim(),
+            createdAt: now,
+            isActive: true);
+
+        var conditionJson = JsonSerializer.Serialize(new
+        {
+            metric = request.Metric.Trim(),
+            @operator = request.Operator.Trim(),
+            threshold = request.Threshold
+        });
+        var penaltyJson = JsonSerializer.Serialize(new
+        {
+            penaltyAmount = request.PenaltyAmount,
+            currency = "USD"
+        });
+
+        var ruleVersion = new SlaRuleVersion(
+            id: Guid.NewGuid(),
+            companyId: userContext.TenantId,
+            slaRuleId: rule.Id,
+            versionNumber: 1,
+            appliesWhenJson: "{}",
+            conditionJson: conditionJson,
+            penaltyJson: penaltyJson,
+            effectiveFrom: now,
+            effectiveTo: null,
+            createdAt: now,
+            createdByUserId: userContext.UserId,
+            isActive: true);
+
+        db.SlaRules.Add(rule);
+        db.SlaRuleVersions.Add(ruleVersion);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new
+        {
+            id = rule.Id,
+            metric = request.Metric.Trim(),
+            @operator = request.Operator.Trim(),
+            threshold = request.Threshold,
+            penaltyAmount = request.PenaltyAmount
+        });
+    }
+
+    [Authorize(Policy = Permissions.ContractsManage)]
+    public static async Task<IResult> DeleteSlaRule(
+        [FromRoute] Guid contractId,
+        [FromRoute] Guid versionId,
+        [FromRoute] Guid ruleId,
+        FixonDbContext db,
+        CancellationToken ct)
+    {
+        var versionExists = await db.ContractVersions
+            .AsNoTracking()
+            .AnyAsync(v => v.Id == versionId && v.ContractId == contractId, ct);
+        if (!versionExists) return Results.NotFound();
+
+        var rule = await db.SlaRules.SingleOrDefaultAsync(r => r.Id == ruleId && r.ContractId == contractId, ct);
+        if (rule is null) return Results.NotFound();
+
+        db.Entry(rule).Property(nameof(SlaRule.IsActive)).CurrentValue = false;
+
+        var versions = await db.SlaRuleVersions.Where(v => v.SlaRuleId == ruleId).ToListAsync(ct);
+        foreach (var version in versions)
+        {
+            db.Entry(version).Property(nameof(SlaRuleVersion.IsActive)).CurrentValue = false;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
     [Authorize(Policy = Permissions.ContractsManage)]
     public static async Task<IResult> CreateContractVersion(
         [FromRoute] Guid contractId,
@@ -669,6 +819,52 @@ FOR UPDATE")
 
         return null;
     }
+
+    private static string? TryReadString(string json, string propertyName)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty(propertyName, out var p) && p.ValueKind == JsonValueKind.String)
+            {
+                return p.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed JSON and fallback to defaults.
+        }
+
+        return null;
+    }
+
+    private static decimal? TryReadDecimal(string json, string propertyName)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty(propertyName, out var p))
+            {
+                return null;
+            }
+
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var numberValue))
+            {
+                return numberValue;
+            }
+
+            if (p.ValueKind == JsonValueKind.String && decimal.TryParse(p.GetString(), out var stringValue))
+            {
+                return stringValue;
+            }
+        }
+        catch (JsonException)
+        {
+            // Ignore malformed JSON and fallback to defaults.
+        }
+
+        return null;
+    }
 }
 
 public sealed class CreateContractRequest
@@ -693,4 +889,12 @@ public sealed class CreateContractVersionRequest
 public sealed class UpdateContractRequest
 {
     public string Name { get; set; } = null!;
+}
+
+public sealed class CreateSlaRuleRequest
+{
+    public string Metric { get; set; } = null!;
+    public string Operator { get; set; } = null!;
+    public decimal Threshold { get; set; }
+    public decimal PenaltyAmount { get; set; }
 }

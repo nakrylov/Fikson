@@ -11,6 +11,7 @@ import { TenantMembersPage } from './pages/TenantMembersPage';
 import { TenantInvitesPage } from './pages/TenantInvitesPage';
 import { ClaimsPage } from './pages/ClaimsPage';
 import { FactImportPage } from './pages/FactImportPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 /**
  * App routes:
@@ -32,6 +33,10 @@ export function App() {
           </ProtectedRoute>
         }
       >
+        <Route
+          path="/dashboard"
+          element={<DashboardPage />}
+        />
         <Route
           path="/contracts"
           element={<ContractsPage />}
@@ -58,8 +63,8 @@ export function App() {
         />
       </Route>
 
-      <Route path="/" element={<Navigate to="/contracts" replace />} />
-      <Route path="*" element={<Navigate to="/contracts" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

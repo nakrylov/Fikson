@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiError, Claim, ClaimsSummary, getClaims, getClaimsSummary } from '../api/api';
+import { Card } from '../components/Card';
+import { Column, Table } from '../components/Table';
 import { t } from '../i18n';
 
 export function ClaimsPage() {
@@ -30,49 +32,37 @@ export function ClaimsPage() {
     void loadClaims();
   }, [loadClaims]);
 
+  const claimColumns = useMemo<Column<Claim>[]>(() => [
+    {
+      key: 'shipmentId',
+      title: t.claims.shipment,
+      render: (claim) => claim.shipmentId ?? t.common.unknown
+    },
+    { key: 'ruleId', title: t.claims.rule },
+    { key: 'penaltyAmount', title: t.claims.penalty },
+    { key: 'createdAt', title: t.claims.created }
+  ], []);
+
   return (
-    <div>
-      <h2>{t.claims.title}</h2>
-
-      {summary ? (
-        <div style={{ marginBottom: 12 }}>
-          <h3>{t.claims.summaryTitle}</h3>
-          <div>
-            {t.claims.totalClaims}: {summary.totalClaims}
+    <div className="space-y-6">
+      <Card title={t.claims.summaryTitle}>
+        {loading ? <div>{t.common.loading}</div> : null}
+        {error ? <div style={{ color: 'red' }}>{error}</div> : null}
+        {summary ? (
+          <div className="space-y-1">
+            <div>
+              {t.claims.totalClaims}: {summary.totalClaims}
+            </div>
+            <div>
+              {t.claims.totalPenalty}: {summary.totalPenalty}
+            </div>
           </div>
-          <div>
-            {t.claims.totalPenalty}: {summary.totalPenalty}
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Card>
 
-      {loading ? <div>{t.common.loading}</div> : null}
-      {error ? <div style={{ color: 'red' }}>{error}</div> : null}
-
-      {!loading && !error && items.length === 0 ? <div>{t.claims.empty}</div> : null}
-
-      {!loading && !error && items.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>{t.claims.shipment}</th>
-              <th>{t.claims.rule}</th>
-              <th>{t.claims.penalty}</th>
-              <th>{t.claims.created}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((claim) => (
-              <tr key={claim.id}>
-                <td>{claim.shipmentId ?? t.common.unknown}</td>
-                <td>{claim.ruleId}</td>
-                <td>{claim.penaltyAmount}</td>
-                <td>{claim.createdAt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+      <Card title={t.claims.title}>
+        {!loading && !error ? <Table columns={claimColumns} data={items} emptyText={t.claims.empty} /> : null}
+      </Card>
     </div>
   );
 }

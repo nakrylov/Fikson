@@ -352,6 +352,15 @@ else
     tenantApi.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/activate", ContractsEndpoints.ActivateContractVersion)
         .RequireAuthorization(Permissions.ContractsManage);
 
+    tenantApi.MapGet("/contracts/{contractId:guid}/versions/{versionId:guid}/rules", ContractsEndpoints.GetSlaRules)
+        .RequireAuthorization(Permissions.ContractsRead);
+
+    tenantApi.MapPost("/contracts/{contractId:guid}/versions/{versionId:guid}/rules", ContractsEndpoints.CreateSlaRule)
+        .RequireAuthorization(Permissions.ContractsManage);
+
+    tenantApi.MapDelete("/contracts/{contractId:guid}/versions/{versionId:guid}/rules/{ruleId:guid}", ContractsEndpoints.DeleteSlaRule)
+        .RequireAuthorization(Permissions.ContractsManage);
+
     tenantApi.MapPost("/contracts/{contractId:guid}/terminate", ContractsEndpoints.TerminateContract)
         .RequireAuthorization(Permissions.ContractsManage);
 
@@ -373,6 +382,8 @@ else
     tenantApi.MapPost("/imports/facts", FactsImportEndpoints.ImportFacts)
         .RequireAuthorization(Permissions.ImportsUpload)
         .DisableAntiforgery();
+    tenantApi.MapGet("/imports/template", FactsImportEndpoints.DownloadTemplate)
+        .RequireAuthorization(Permissions.ImportsUpload);
     tenantApi.MapGet("/imports", FactsImportEndpoints.GetImportHistory)
         .RequireAuthorization(Permissions.ImportsUpload);
 

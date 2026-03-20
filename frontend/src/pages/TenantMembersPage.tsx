@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ApiError, getTenantMembers, TenantMember } from '../api/api';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { Column, Table } from '../components/Table';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../i18n';
 
@@ -36,6 +39,12 @@ export function TenantMembersPage() {
   }, [loadMembers]);
 
   const rows = useMemo(() => items, [items]);
+  const memberColumns = useMemo<Column<TenantMember>[]>(() => [
+    { key: 'email', title: t.members.email },
+    { key: 'role', title: t.members.role },
+    { key: 'status', title: t.members.status },
+    { key: 'createdAt', title: t.members.createdAt }
+  ], []);
 
   if (!tenantId) {
     return <Navigate to="/welcome" replace />;
@@ -43,47 +52,28 @@ export function TenantMembersPage() {
 
   if (role !== 'Admin') {
     return (
-      <div>
-        <h2>{t.members.title}</h2>
+      <div className="space-y-6">
+        <Card title={t.members.title}>
         <div style={{ color: 'red' }}>{t.members.forbidden}</div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2>{t.members.title}</h2>
-      <button type="button" onClick={() => navigate('/invites')}>
-        {t.invites.openPage}
-      </button>
-
-      {loading ? <div>{t.common.loading}</div> : null}
-      {error ? <div style={{ color: 'red' }}>{error}</div> : null}
-
-      {!loading && !error && rows.length === 0 ? <div>{t.members.empty}</div> : null}
-
-      {!loading && !error && rows.length > 0 ? (
-        <table>
-          <thead>
-            <tr>
-              <th>{t.members.email}</th>
-              <th>{t.members.role}</th>
-              <th>{t.members.status}</th>
-              <th>{t.members.createdAt}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((m) => (
-              <tr key={`${m.userId}-${m.email}`}>
-                <td>{m.email}</td>
-                <td>{m.role}</td>
-                <td>{m.status}</td>
-                <td>{m.createdAt}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : null}
+    <div className="space-y-6">
+      <Card
+        title={t.members.title}
+        actions={(
+          <Button type="button" variant="secondary" onClick={() => navigate('/invites')}>
+            {t.invites.openPage}
+          </Button>
+        )}
+      >
+        {loading ? <div>{t.common.loading}</div> : null}
+        {error ? <div style={{ color: 'red' }}>{error}</div> : null}
+        {!loading && !error ? <Table columns={memberColumns} data={rows} emptyText={t.members.empty} /> : null}
+      </Card>
     </div>
   );
 }

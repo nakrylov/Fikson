@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { Button } from './Button';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../i18n';
 
@@ -19,6 +20,9 @@ export function Layout() {
         <div className="text-xl font-semibold mb-6">Fixon</div>
 
         <nav className="space-y-2">
+          <NavLink to="/dashboard" className={navLinkClassName}>
+            {t.nav.dashboard}
+          </NavLink>
           <NavLink to="/contracts" className={navLinkClassName}>
             {t.nav.contracts}
           </NavLink>
@@ -36,13 +40,9 @@ export function Layout() {
           </NavLink>
         </nav>
 
-        <button
-          type="button"
-          className="mt-auto border border-gray-700 px-4 py-2 rounded hover:bg-gray-800"
-          onClick={() => logout()}
-        >
+        <Button type="button" variant="secondary" className="mt-auto" onClick={() => logout()}>
           {t.nav.logout}
-        </button>
+        </Button>
       </aside>
 
       <main className="flex-1 p-6 bg-gray-50">

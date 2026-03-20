@@ -449,6 +449,61 @@ export async function getFactImports(): Promise<FactImport[]> {
   return apiRequest<FactImport[]>('/api/imports', { method: 'GET' });
 }
 
+const FACT_IMPORT_TEMPLATE_FILE_NAME = 'fact_import_template.csv';
+const FACT_IMPORT_TEMPLATE_CONTENT =
+  'shipmentId;factType;eventTime;value\n' +
+  'SHP-001;DELIVERY_DELAY;2026-01-01T10:00:00Z;45\n' +
+  'SHP-002;DELIVERY_DELAY;2026-01-01T11:00:00Z;10\n';
+
+function triggerFileDownload(blob: Blob, fileName: string): void {
+  const objectUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadFactImportTemplate(): Promise<void> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/api/imports/template`;
+  const headers = new Headers();
+  headers.set('Accept', 'text/csv');
+
+  const token = getStoredToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers
+  });
+
+  if (res.status === 401) {
+    clearStoredToken();
+    if (window.location.pathname !== '/login') window.location.href = '/login';
+    throw new ApiError('Unauthorized', 401, null);
+  }
+
+  if (res.status === 404) {
+    // Backward-compatible fallback when API route is unavailable in older backend builds.
+    const fallbackBlob = new Blob([FACT_IMPORT_TEMPLATE_CONTENT], { type: 'text/csv;charset=utf-8' });
+    triggerFileDownload(fallbackBlob, FACT_IMPORT_TEMPLATE_FILE_NAME);
+    return;
+  }
+
+  if (!res.ok) {
+    const payload = await res.text().catch(() => null);
+    throw new ApiError(`Request failed (${res.status})`, res.status, payload);
+  }
+
+  const blob = await res.blob();
+  triggerFileDownload(blob, FACT_IMPORT_TEMPLATE_FILE_NAME);
+}
+
 export type ImportFactsResponse = {
   imported: number;
   claimsGenerated: number;

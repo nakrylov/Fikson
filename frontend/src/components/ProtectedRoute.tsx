@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { t } from '../i18n';
 
 /**
  * ProtectedRoute:
@@ -8,7 +9,11 @@ import { useAuth } from '../hooks/useAuth';
  * If there is a JWT → render children.
  */
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, tenantId } = useAuth();
+  const { isAuthenticated, tenantId, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return <div className="p-4">{t.common.loading}</div>;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

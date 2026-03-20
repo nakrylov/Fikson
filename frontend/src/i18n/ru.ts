@@ -28,11 +28,11 @@ export const ru = {
     validationError: 'Validation error'
   },
   auth: {
-    loginTitle: 'Fixon Login',
+    loginTitle: 'Авторизация',
     email: 'Email',
-    password: 'Password',
-    signIn: 'Sign in',
-    signingIn: 'Signing in…',
+    password: 'Пароль',
+    signIn: 'Войти',
+    signingIn: 'Авторизация…',
     invalidCredentials: 'Invalid credentials',
     authenticated: 'Authenticated',
     tenantIdLabel: 'tenantId',
@@ -58,11 +58,11 @@ export const ru = {
     pleaseLoginFirst: 'Please log in first.'
   },
   contracts: {
-    title: 'Contracts',
+    title: 'Договоры',
     detailsTitle: 'Contract details',
     tenantIdFromJwt: 'tenantId (from JWT)',
     roleFromJwt: 'role (from JWT)',
-    createContract: 'Create Contract',
+    createContract: '+ Новый договор',
     name: 'Name',
     edit: 'Edit',
     save: 'Save',
@@ -72,6 +72,10 @@ export const ru = {
     createVersion: 'Create version',
     signVersion: 'Sign version',
     activateVersion: 'Activate version',
+    noActiveVersion: 'No active contract version',
+    createVersionHint: 'Create version',
+    signVersionHint: 'Sign version',
+    activateVersionHint: 'Activate version',
     versionNumber: 'Version',
     status: 'Status',
     createdAt: 'Created at',
@@ -151,8 +155,15 @@ export const ru = {
     operator: 'Operator',
     threshold: 'Threshold',
     penalty: 'Penalty amount',
-    create: 'Create rule',
-    delete: 'Delete',
+    booleanCondition: 'Condition is true',
+    preview: 'Preview',
+    metrics: {
+      deliveryDelay: 'Задержка доставки',
+      temperature: 'Нарушение температурного режима',
+      missingDocs: 'Отсутствие документов'
+    },
+    create: 'Сохранить',
+    delete: 'Удалить',
     empty: 'No rules'
   },
   claims: {
@@ -170,6 +181,12 @@ export const ru = {
   imports: {
     title: 'Fact imports',
     openPage: 'Open imports page',
+    downloadTemplate: 'Download template',
+    previewTitle: 'CSV preview',
+    confirmImport: 'Confirm import',
+    invalidFormat: 'Invalid CSV format. Required columns: shipmentId, factType, eventTime, value',
+    missingColumnsLabel: 'Missing required columns',
+    previewHint: '1) Select CSV file  2) Preview data  3) Confirm import',
     selectFile: 'CSV file',
     upload: 'Upload',
     uploading: 'Uploading…',
@@ -181,16 +198,20 @@ export const ru = {
     empty: 'No imports yet'
   },
   dashboard: {
-    title: 'Contract dashboard',
+    title: 'Dashboard',
+    contractTitle: 'Contract dashboard',
     totalPenalty: 'Total penalties',
     totalClaims: 'Total violations',
     shipments: 'Shipments affected',
-    lastImport: 'Last import'
+    lastImport: 'Last import',
+    recentImports: 'Recent imports',
+    quickActions: 'Quick actions'
   },
   nav: {
-    contracts: 'Contracts',
+    dashboard: 'Dashboard',
+    contracts: 'Договоры',
     claims: 'Claims',
-    imports: 'Imports',
+    imports: 'Загрузить файл',
     members: 'Members',
     invites: 'Invites',
     logout: 'Logout'

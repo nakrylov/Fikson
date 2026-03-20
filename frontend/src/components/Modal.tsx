@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from './Button';
 import { t } from '../i18n';
 
 /**
@@ -19,9 +20,9 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
     <div role="dialog" aria-modal="true">
       <div>
         {title ? <h3>{title}</h3> : null}
-        <button type="button" onClick={onClose}>
+        <Button type="button" variant="secondary" onClick={onClose}>
           {t.common.close}
-        </button>
+        </Button>
       </div>
       <div>{children}</div>
     </div>

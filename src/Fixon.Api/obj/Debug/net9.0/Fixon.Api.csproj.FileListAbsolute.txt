@@ -217,3 +217,12 @@ C:\dev\fikson\src\Fixon.Api\bin\Debug\net9.0\appsettings.Testing.json
 C:\dev\fikson\src\Fixon.Api\bin\Debug\net9.0\BouncyCastle.Cryptography.dll
 C:\dev\fikson\src\Fixon.Api\bin\Debug\net9.0\MailKit.dll
 C:\dev\fikson\src\Fixon.Api\bin\Debug\net9.0\MimeKit.dll
+C:\dev\fikson\artifacts\verify-build\appsettings.Development.json
+C:\dev\fikson\artifacts\verify-build\appsettings.json
+C:\dev\fikson\artifacts\verify-build\appsettings.Testing.json
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.staticwebassets.endpoints.json
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.exe
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.deps.json
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.runtimeconfig.json
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.dll
+C:\dev\fikson\artifacts\verify-build\Fixon.Api.pdb

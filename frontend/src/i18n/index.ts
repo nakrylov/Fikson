@@ -8,7 +8,8 @@ import { en } from './en';
  * - No runtime locale switch yet; default locale is Russian (`ru`).
  */
 
-export type Dictionary = typeof ru;
+type WidenStrings<T> = T extends string ? string : T extends object ? { [K in keyof T]: WidenStrings<T[K]> } : T;
+export type Dictionary = WidenStrings<typeof ru>;
 export type Locale = 'ru' | 'en';
 
 export const locale: Locale = 'ru';

@@ -28,6 +28,7 @@ export type UserInfo = {
 
 export type UserContextValue = UserInfo & {
   isAuthenticated: boolean;
+  isInitializing: boolean;
   login: (email: string, password: string) => Promise<void>;
   /**
    * Allows setting JWT received from other flows
@@ -94,6 +95,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [memberships, setMemberships] = useState<CurrentUserMembership[]>([]);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
   const isAuthenticated = !!token;
 
@@ -128,10 +130,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // On app start: restore token from localStorage (if any).
-    const stored = getStoredToken();
-    hydrateFromToken(stored);
-    void refreshUser();
+    let cancelled = false;
+
+    const bootstrapAuth = async () => {
+      // On app start: restore token from localStorage (if any).
+      const stored = getStoredToken();
+      hydrateFromToken(stored);
+      try {
+        await refreshUser();
+      } finally {
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
+      }
+    };
+
+    void bootstrapAuth();
+
+    return () => {
+      cancelled = true;
+    };
   }, [hydrateFromToken, refreshUser]);
 
   const login = useCallback(
@@ -164,6 +182,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     hydrateFromToken(null);
     setUserId(null);
     setMemberships([]);
+    setIsInitializing(false);
   }, [hydrateFromToken]);
 
   const value = useMemo<UserContextValue>(
@@ -174,12 +193,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       role,
       memberships,
       isAuthenticated,
+      isInitializing,
       login,
       setToken: setTokenExternal,
       refreshUser,
       logout
     }),
-    [userId, token, tenantId, role, memberships, isAuthenticated, login, setTokenExternal, refreshUser, logout]
+    [userId, token, tenantId, role, memberships, isAuthenticated, isInitializing, login, setTokenExternal, refreshUser, logout]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

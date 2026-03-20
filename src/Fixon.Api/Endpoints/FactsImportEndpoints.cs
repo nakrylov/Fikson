@@ -14,6 +14,22 @@ namespace Fixon.Api.Endpoints;
 
 public static class FactsImportEndpoints
 {
+    private const string FactImportTemplateCsv =
+        "shipmentId;factType;eventTime;value\n" +
+        "SHP-001;DELIVERY_DELAY;2026-01-01T10:00:00Z;45\n" +
+        "SHP-002;DELIVERY_DELAY;2026-01-01T11:00:00Z;10\n";
+
+    [Authorize(Policy = Permissions.ImportsUpload)]
+    [RequireTenant]
+    public static IResult DownloadTemplate()
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(FactImportTemplateCsv);
+        return Results.File(
+            fileContents: bytes,
+            contentType: "text/csv",
+            fileDownloadName: "fact_import_template.csv");
+    }
+
     /// <summary>
     /// POST /api/imports/facts
     /// Minimal CSV import (multipart/form-data, field: file).
@@ -43,6 +59,7 @@ public static class FactsImportEndpoints
 
         var lines = csv
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var delimiter = lines.Length > 0 && lines[0].Contains(';') ? ';' : ',';
 
         var now = DateTimeOffset.UtcNow;
         var facts = new List<Fact>();
@@ -50,7 +67,7 @@ public static class FactsImportEndpoints
         // Skip header line.
         for (var i = 1; i < lines.Length; i++)
         {
-            var parts = lines[i].Split(',');
+            var parts = lines[i].Split(delimiter);
             if (parts.Length < 4)
             {
                 return Results.BadRequest(new { error = $"Invalid CSV row at line {i + 1}." });

@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, createTenant } from '../api/api';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { FormField } from '../components/FormField';
+import { Input } from '../components/Input';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../i18n';
 
@@ -57,40 +61,44 @@ export function TenantBootstrapPage() {
   // If user already has a tenant, this page is not needed.
   if (isAuthenticated && tenantId) {
     return (
-      <div>
-        <div>{t.tenant.alreadyInCompany}</div>
-        <button type="button" onClick={() => navigate('/contracts', { replace: true })}>
-          {t.tenant.goToContracts}
-        </button>
+      <div className="space-y-6">
+        <Card title={t.tenant.welcomeTitle}>
+          <div className="space-y-4">
+            <div>{t.tenant.alreadyInCompany}</div>
+            <Button type="button" variant="secondary" onClick={() => navigate('/contracts', { replace: true })}>
+              {t.tenant.goToContracts}
+            </Button>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2>{t.tenant.welcomeTitle}</h2>
-      <div>{t.tenant.noCompanyYet}</div>
+    <div className="space-y-6">
+      <Card title={t.tenant.welcomeTitle}>
+        <div className="space-y-2">{t.tenant.noCompanyYet}</div>
+      </Card>
+      <Card title={t.tenant.createCompany}>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <FormField label={t.tenant.companyName} error={error ?? undefined}>
+            <Input
+              value={name}
+              onChange={(ev) => setName(ev.target.value)}
+              disabled={loading}
+              placeholder={t.tenant.companyNamePlaceholder}
+              error={Boolean(error)}
+            />
+          </FormField>
 
-      <form onSubmit={onSubmit} style={{ marginTop: 12 }}>
-        <label style={{ display: 'block' }}>
-          <div>{t.tenant.companyName}</div>
-          <input
-            value={name}
-            onChange={(ev) => setName(ev.target.value)}
-            disabled={loading}
-            placeholder={t.tenant.companyNamePlaceholder}
-          />
-        </label>
-
-        <button type="submit" disabled={loading || !isAuthenticated}>
-          {loading ? t.tenant.creatingCompany : t.tenant.createCompany}
-        </button>
-
-        {error ? <div style={{ color: 'red', marginTop: 12 }}>{error}</div> : null}
-        {!isAuthenticated ? (
-          <div style={{ color: 'red', marginTop: 12 }}>{t.tenant.pleaseLoginFirst}</div>
-        ) : null}
-      </form>
+          <Button type="submit" variant="primary" disabled={loading || !isAuthenticated}>
+            {loading ? t.tenant.creatingCompany : t.tenant.createCompany}
+          </Button>
+          {!isAuthenticated ? (
+            <div style={{ color: 'red', marginTop: 12 }}>{t.tenant.pleaseLoginFirst}</div>
+          ) : null}
+        </form>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { acceptInvite, ApiError, apiRequest, getInvite, InviteInfo } from '../api/api';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { FormField } from '../components/FormField';
+import { Input } from '../components/Input';
 import { useAuth } from '../hooks/useAuth';
 import { t } from '../i18n';
 
@@ -156,79 +160,96 @@ export function JoinInvitePage() {
   };
 
   if (loadingInvite) {
-    return <div>{t.common.loading}</div>;
+    return (
+      <div className="space-y-6">
+        <Card title={t.invite.joinTenantTitle}>
+          <div>{t.common.loading}</div>
+        </Card>
+      </div>
+    );
   }
 
   if (inviteError) {
-    return <div style={{ color: 'red' }}>{inviteError}</div>;
+    return (
+      <div className="space-y-6">
+        <Card title={t.invite.joinTenantTitle}>
+          <div style={{ color: 'red' }}>{inviteError}</div>
+        </Card>
+      </div>
+    );
   }
 
   if (!invite) {
-    return <div style={{ color: 'red' }}>{t.invite.invalidInvite}</div>;
+    return (
+      <div className="space-y-6">
+        <Card title={t.invite.joinTenantTitle}>
+          <div style={{ color: 'red' }}>{t.invite.invalidInvite}</div>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <h2>{t.invite.joinTenantTitle}</h2>
-
-      <div style={{ marginBottom: 12 }}>
-        <div>
-          {t.invite.invitedToJoinPrefix} <strong>{invite.tenantName}</strong>
+    <div className="space-y-6">
+      <Card title={t.invite.joinTenantTitle}>
+        <div className="space-y-1">
+          <div>
+            {t.invite.invitedToJoinPrefix} <strong>{invite.tenantName}</strong>
+          </div>
+          <div>
+            {t.invite.email}: <strong>{invite.email}</strong>
+          </div>
+          <div>
+            {t.invite.role}: <strong>{invite.role}</strong>
+          </div>
+          <div>
+            {t.invite.expiresAtLabel}: {invite.expiresAt}
+          </div>
         </div>
-        <div>
-          {t.invite.email}: <strong>{invite.email}</strong>
-        </div>
-        <div>
-          {t.invite.role}: <strong>{invite.role}</strong>
-        </div>
-        <div>
-          {t.invite.expiresAtLabel}: {invite.expiresAt}
-        </div>
-      </div>
+      </Card>
 
       {!isAuthenticated ? (
-        <div>
-          <h3>{t.invite.registerToAccept}</h3>
-
-          <form onSubmit={onRegisterAndJoin}>
-            <label style={{ display: 'block' }}>
-              <div>{t.invite.email}</div>
-              <input
+        <Card title={t.invite.registerToAccept}>
+          <form onSubmit={onRegisterAndJoin} className="space-y-4">
+            <FormField label={t.invite.email} error={actionError ?? undefined}>
+              <Input
                 value={email}
                 onChange={(ev) => setEmail(ev.target.value)}
                 disabled={actionLoading}
+                error={Boolean(actionError)}
               />
-            </label>
+            </FormField>
 
             {warning ? <div style={{ color: 'orange' }}>{warning}</div> : null}
 
-            <label style={{ display: 'block' }}>
-              <div>{t.auth.password}</div>
-              <input
+            <FormField label={t.auth.password} error={actionError ?? undefined}>
+              <Input
                 type="password"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 disabled={actionLoading}
+                error={Boolean(actionError)}
               />
-            </label>
+            </FormField>
 
-            <button type="submit" disabled={actionLoading}>
+            <Button type="submit" variant="primary" disabled={actionLoading}>
               {actionLoading ? t.common.working : t.invite.registerAndJoin}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
       ) : (
-        <div>
-          <h3>
-            {t.invite.joinHeadingPrefix} {invite.tenantName}
-          </h3>
-          <button type="button" onClick={() => void doAccept()} disabled={actionLoading}>
+        <Card title={`${t.invite.joinHeadingPrefix} ${invite.tenantName}`}>
+          <Button type="button" variant="primary" onClick={() => void doAccept()} disabled={actionLoading}>
             {actionLoading ? t.common.joining : t.invite.acceptInvite}
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
-      {actionError ? <div style={{ color: 'red', marginTop: 12 }}>{actionError}</div> : null}
+      {actionError ? (
+        <Card title={t.common.requestFailed}>
+          <div style={{ color: 'red' }}>{actionError}</div>
+        </Card>
+      ) : null}
     </div>
   );
 }

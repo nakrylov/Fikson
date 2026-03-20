@@ -24,3 +24,6 @@ C:\dev\fikson\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.dll
 C:\dev\fikson\src\Fixon.Domain\obj\Debug\net9.0\refint\Fixon.Domain.dll
 C:\dev\fikson\src\Fixon.Domain\obj\Debug\net9.0\Fixon.Domain.pdb
 C:\dev\fikson\src\Fixon.Domain\obj\Debug\net9.0\ref\Fixon.Domain.dll
+C:\dev\fikson\artifacts\verify-build\Fixon.Domain.deps.json
+C:\dev\fikson\artifacts\verify-build\Fixon.Domain.dll
+C:\dev\fikson\artifacts\verify-build\Fixon.Domain.pdb
