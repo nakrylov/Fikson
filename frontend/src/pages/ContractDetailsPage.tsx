@@ -52,22 +52,37 @@ export function ContractDetailsPage() {
   const [loadingDashboard, setLoadingDashboard] = React.useState<boolean>(false);
   const [errorDashboard, setErrorDashboard] = React.useState<string | null>(null);
   const [metricDraft, setMetricDraft] = React.useState<string>('DELIVERY_DELAY');
+  const [conditionTypeDraft, setConditionTypeDraft] = React.useState<'threshold' | 'range' | 'boolean'>('threshold');
   const [operatorDraft, setOperatorDraft] = React.useState<string>('>');
   const [thresholdDraft, setThresholdDraft] = React.useState<string>('0');
+  const [minValueDraft, setMinValueDraft] = React.useState<string>('');
+  const [maxValueDraft, setMaxValueDraft] = React.useState<string>('');
+  const [eventTypeDraft, setEventTypeDraft] = React.useState<string>('DOCUMENT_MISSING');
   const [penaltyDraft, setPenaltyDraft] = React.useState<string>('0');
   const thresholdValue = Number(thresholdDraft);
+  const minValue = Number(minValueDraft);
+  const maxValue = Number(maxValueDraft);
   const penaltyValue = Number(penaltyDraft);
   const selectedMetric = React.useMemo(
     () => metrics.find((metric) => metric.code === metricDraft) ?? metrics[0],
     [metricDraft]
   );
-  const isBooleanMetric = selectedMetric.type === 'boolean';
+  const isThresholdCondition = conditionTypeDraft === 'threshold';
+  const isRangeCondition = conditionTypeDraft === 'range';
+  const isBooleanCondition = conditionTypeDraft === 'boolean';
   const canCreateRule =
     Number.isFinite(penaltyValue) &&
     penaltyValue > 0 &&
-    (isBooleanMetric || (Number.isFinite(thresholdValue) && thresholdValue > 0));
+    (isBooleanCondition
+      ? eventTypeDraft.trim().length > 0
+      : (isRangeCondition
+        ? (Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue <= maxValue)
+        : (Number.isFinite(thresholdValue) && thresholdValue > 0)));
   const ruleThresholdFieldError =
-    !isBooleanMetric && errorRules && errorRules.includes(t.rules.threshold) ? errorRules : undefined;
+    isThresholdCondition && errorRules && errorRules.includes(t.rules.threshold) ? errorRules : undefined;
+  const ruleMinFieldError = isRangeCondition && errorRules && errorRules.includes(t.rules.minValue) ? errorRules : undefined;
+  const ruleMaxFieldError = isRangeCondition && errorRules && errorRules.includes(t.rules.maxValue) ? errorRules : undefined;
+  const ruleEventTypeFieldError = isBooleanCondition && errorRules && errorRules.includes(t.rules.eventType) ? errorRules : undefined;
   const rulePenaltyFieldError = errorRules && errorRules.includes(t.rules.penalty) ? errorRules : undefined;
   const getMetricLabel = React.useCallback((metricCode: string) => {
     if (metricCode === 'DELIVERY_DELAY') return t.rules.metrics.deliveryDelay;
@@ -247,12 +262,27 @@ export function ContractDetailsPage() {
     [id, loadVersions]
   );
 
+  React.useEffect(() => {
+    if (metricDraft === 'TEMPERATURE') {
+      setConditionTypeDraft('range');
+      return;
+    }
+    if (metricDraft === 'MISSING_DOCS' || metricDraft === 'DOCUMENT_MISSING') {
+      setConditionTypeDraft('boolean');
+      setEventTypeDraft('DOCUMENT_MISSING');
+      return;
+    }
+    setConditionTypeDraft('threshold');
+  }, [metricDraft]);
+
   const onCreateRule = React.useCallback(async () => {
     if (!id || !activatedVersion) return;
     if (!canCreateRule) {
       setErrorRules(
-        isBooleanMetric
-          ? `${t.common.validationError}: ${t.rules.penalty} > 0`
+        isRangeCondition
+          ? `${t.common.validationError}: ${t.rules.minValue} <= ${t.rules.maxValue}, ${t.rules.penalty} > 0`
+          : isBooleanCondition
+          ? `${t.common.validationError}: ${t.rules.eventType}, ${t.rules.penalty} > 0`
           : `${t.common.validationError}: ${t.rules.threshold} > 0, ${t.rules.penalty} > 0`
       );
       return;
@@ -263,21 +293,29 @@ export function ContractDetailsPage() {
     try {
       await createSlaRule(id, activatedVersion.id, {
         metric: selectedMetric.code,
-        operator: isBooleanMetric ? 'EQUALS' : operatorDraft,
-        threshold: isBooleanMetric ? 1 : thresholdValue,
-        penaltyAmount: penaltyValue
+        conditionType: conditionTypeDraft,
+        operator: isThresholdCondition ? operatorDraft : undefined,
+        threshold: isThresholdCondition ? thresholdValue : undefined,
+        minValue: isRangeCondition ? minValue : undefined,
+        maxValue: isRangeCondition ? maxValue : undefined,
+        eventType: isBooleanCondition ? eventTypeDraft.trim() : undefined,
+        penaltyAmount: penaltyValue,
       });
       await loadRules();
       setMetricDraft('DELIVERY_DELAY');
+      setConditionTypeDraft('threshold');
       setOperatorDraft('>');
       setThresholdDraft('');
+      setMinValueDraft('');
+      setMaxValueDraft('');
+      setEventTypeDraft('DOCUMENT_MISSING');
       setPenaltyDraft('');
     } catch {
       setErrorRules(t.common.requestFailed);
     } finally {
       setRuleActionLoading(false);
     }
-  }, [id, activatedVersion, canCreateRule, isBooleanMetric, selectedMetric, operatorDraft, thresholdValue, penaltyValue, loadRules]);
+  }, [id, activatedVersion, canCreateRule, isRangeCondition, isBooleanCondition, conditionTypeDraft, isThresholdCondition, selectedMetric, operatorDraft, thresholdValue, minValue, maxValue, eventTypeDraft, penaltyValue, loadRules]);
 
   const onDeleteRule = React.useCallback(
     async (ruleId: string) => {
@@ -475,7 +513,18 @@ export function ContractDetailsPage() {
                   ))}
                 </select>
               </FormField>
-              {!isBooleanMetric ? (
+              <FormField label={t.rules.conditionType}>
+                <select
+                  value={conditionTypeDraft}
+                  onChange={(ev) => setConditionTypeDraft(ev.target.value as 'threshold' | 'range' | 'boolean')}
+                  disabled={ruleActionLoading}
+                >
+                  <option value="threshold">{t.rules.threshold}</option>
+                  <option value="range">{t.rules.range}</option>
+                  <option value="boolean">{t.rules.boolean}</option>
+                </select>
+              </FormField>
+              {isThresholdCondition ? (
                 <>
                   <FormField label={t.rules.operator}>
                     <select
@@ -503,11 +552,44 @@ export function ContractDetailsPage() {
                     </div>
                   </FormField>
                 </>
+              ) : isRangeCondition ? (
+                <>
+                  <FormField label={t.rules.minValue} error={ruleMinFieldError}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={minValueDraft}
+                        onChange={(ev) => setMinValueDraft(ev.target.value)}
+                        disabled={ruleActionLoading}
+                        className="w-24"
+                        error={Boolean(ruleMinFieldError)}
+                      />
+                      <span>{selectedMetric.unit}</span>
+                    </div>
+                  </FormField>
+                  <FormField label={t.rules.maxValue} error={ruleMaxFieldError}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={maxValueDraft}
+                        onChange={(ev) => setMaxValueDraft(ev.target.value)}
+                        disabled={ruleActionLoading}
+                        className="w-24"
+                        error={Boolean(ruleMaxFieldError)}
+                      />
+                      <span>{selectedMetric.unit}</span>
+                    </div>
+                  </FormField>
+                </>
               ) : (
-                <FormField label={t.rules.operator}>
-                  <div className="flex items-center gap-2">
-                    <span>{t.rules.booleanCondition}</span>
-                  </div>
+                <FormField label={t.rules.eventType} error={ruleEventTypeFieldError}>
+                  <select
+                    value={eventTypeDraft}
+                    onChange={(ev) => setEventTypeDraft(ev.target.value)}
+                    disabled={ruleActionLoading}
+                  >
+                    <option value="DOCUMENT_MISSING">DOCUMENT_MISSING</option>
+                  </select>
                 </FormField>
               )}
               <FormField label={t.rules.penalty} error={rulePenaltyFieldError}>
@@ -526,8 +608,10 @@ export function ContractDetailsPage() {
               </FormField>
               <div className="bg-gray-50 p-3 rounded border">
                 {t.rules.preview}:{' '}
-                {isBooleanMetric ? (
-                  <>IF {getMetricLabel(selectedMetric.code)} -&gt; penalty {penaltyDraft || '0'} €</>
+                {isBooleanCondition ? (
+                  <>IF {t.rules.boolean}: {eventTypeDraft || 'DOCUMENT_MISSING'} -&gt; penalty {penaltyDraft || '0'} €</>
+                ) : isRangeCondition ? (
+                  <>IF {getMetricLabel(selectedMetric.code)} {t.rules.range} [{minValueDraft || '0'} ... {maxValueDraft || '0'}] {selectedMetric.unit} -&gt; penalty {penaltyDraft || '0'} €</>
                 ) : (
                   <>IF {getMetricLabel(selectedMetric.code)} {operatorDraft} {thresholdDraft || '0'} {selectedMetric.unit} -&gt; penalty {penaltyDraft || '0'} €</>
                 )}
@@ -543,7 +627,7 @@ export function ContractDetailsPage() {
             </div>
 
             {loadingRules ? <div>{t.common.loading}</div> : null}
-            {errorRules && !rulePenaltyFieldError && !ruleThresholdFieldError ? (
+            {errorRules && !rulePenaltyFieldError && !ruleThresholdFieldError && !ruleMinFieldError && !ruleMaxFieldError && !ruleEventTypeFieldError ? (
               <div style={{ color: 'red' }}>{errorRules}</div>
             ) : null}
 
@@ -564,8 +648,12 @@ export function ContractDetailsPage() {
                   {rules.map((rule) => (
                     <tr key={rule.id}>
                       <td>{rule.metric}</td>
-                      <td>{rule.operator}</td>
-                      <td>{rule.threshold}</td>
+                      <td>{rule.conditionType === 'range' ? t.rules.range : (rule.conditionType === 'boolean' ? t.rules.boolean : rule.operator)}</td>
+                      <td>
+                        {rule.conditionType === 'range'
+                          ? `[${rule.minValue ?? ''} ... ${rule.maxValue ?? ''}]`
+                          : (rule.conditionType === 'boolean' ? `${t.rules.eventType}: ${rule.eventType ?? 'DOCUMENT_MISSING'}` : rule.threshold)}
+                      </td>
                       <td>{rule.penaltyAmount}</td>
                       <td>
                         <Button

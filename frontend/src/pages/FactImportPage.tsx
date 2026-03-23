@@ -6,7 +6,7 @@ import { FormField } from '../components/FormField';
 import { Column, Table } from '../components/Table';
 import { t } from '../i18n';
 
-const REQUIRED_HEADERS = ['shipmentId', 'factType', 'eventTime', 'value'] as const;
+const REQUIRED_HEADERS = ['shipmentId', 'factType', 'eventTime', 'value', 'counterpartyCode'] as const;
 
 export function FactImportPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -203,6 +203,7 @@ export function FactImportPage() {
             />
           </FormField>
           <div className="text-sm text-gray-600">{t.imports.previewHint}</div>
+          <div className="text-sm text-gray-600">{t.imports.counterpartyMatchHint}</div>
           {parseError ? (
             <div className="space-y-2 text-sm text-red-600">
               <div>{parseError}</div>

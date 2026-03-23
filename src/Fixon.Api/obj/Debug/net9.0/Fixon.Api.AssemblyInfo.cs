@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Fixon.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4856603a559aa5f621fdc7cd74b29b6d45d21ff6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3b6a095661cdd1acbcabe6c158afb532ec3af43e")]
 [assembly: System.Reflection.AssemblyProductAttribute("Fixon.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Fixon.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

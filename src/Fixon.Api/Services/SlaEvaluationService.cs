@@ -22,9 +22,14 @@ public sealed class SlaEvaluationService
     {
         var factsRaw = await _db.Facts
             .AsNoTracking()
-            .Where(f => f.FactType == "DELIVERY_DELAY")
+            .Where(f =>
+                f.FactType == "DELIVERY_DELAY"
+                || f.FactType == "TEMPERATURE"
+                || f.FactType == "MISSING_DOCS"
+                || f.FactType == "DOCUMENT_MISSING")
             .Select(f => new
             {
+                f.FactType,
                 f.ExternalReference,
                 f.AttributesJson
             })
@@ -33,12 +38,21 @@ public sealed class SlaEvaluationService
         var facts = new List<DeliveryDelayFactInput>();
         foreach (var item in factsRaw)
         {
-            if (!TryExtractDeliveryDelay(item.ExternalReference, item.AttributesJson, out var shipmentId, out var delayMinutes))
+            if (!TryExtractDeliveryDelay(
+                    item.FactType,
+                    item.ExternalReference,
+                    item.AttributesJson,
+                    out var metric,
+                    out var shipmentId,
+                    out var value,
+                    out var hasNumericValue,
+                    out var eventType,
+                    out var cargoType))
             {
                 continue;
             }
 
-            facts.Add(new DeliveryDelayFactInput(shipmentId, delayMinutes));
+            facts.Add(new DeliveryDelayFactInput(shipmentId, metric, value, hasNumericValue, eventType, cargoType));
         }
 
         if (facts.Count == 0)
@@ -61,6 +75,10 @@ public sealed class SlaEvaluationService
                 ruleVersion.VersionNumber,
                 ruleVersion.ConditionJson,
                 ruleVersion.PenaltyJson,
+                rule.ScopeJson,
+                rule.ConditionType,
+                rule.MinValue,
+                rule.MaxValue,
                 rule.Name,
                 rule.ContractId,
                 ContractVersionId = contract.CurrentVersionId!.Value
@@ -75,7 +93,21 @@ public sealed class SlaEvaluationService
         var rules = new List<DeliveryDelayRuleInput>();
         foreach (var item in latestRules)
         {
-            if (!TryExtractRule(item.Name, item.ConditionJson, item.PenaltyJson, out var @operator, out var threshold, out var penaltyAmount))
+            if (!TryExtractRule(
+                    item.Name,
+                    item.ConditionJson,
+                    item.PenaltyJson,
+                    item.ScopeJson,
+                    item.ConditionType,
+                    item.MinValue,
+                    item.MaxValue,
+                    out var metric,
+                    out var conditionType,
+                    out var @operator,
+                    out var threshold,
+                    out var penaltyAmount,
+                    out var cargoTypeScope,
+                    out var eventType))
             {
                 continue;
             }
@@ -85,9 +117,15 @@ public sealed class SlaEvaluationService
                 RuleVersionId: item.Id,
                 ContractId: item.ContractId,
                 ContractVersionId: item.ContractVersionId,
+                Metric: metric,
+                ConditionType: conditionType,
                 Operator: @operator,
                 Threshold: threshold,
-                PenaltyAmount: penaltyAmount));
+                PenaltyAmount: penaltyAmount,
+                CargoTypeScope: cargoTypeScope,
+                EventType: eventType,
+                MinValue: conditionType == SlaRule.ConditionTypeRange ? Convert.ToDouble(item.MinValue ?? 0m) : null,
+                MaxValue: conditionType == SlaRule.ConditionTypeRange ? Convert.ToDouble(item.MaxValue ?? 0m) : null));
         }
 
         if (rules.Count == 0)
@@ -189,10 +227,23 @@ public sealed class SlaEvaluationService
         return generated;
     }
 
-    private static bool TryExtractDeliveryDelay(string? externalReference, string attributesJson, out string shipmentId, out double delayMinutes)
+    private static bool TryExtractDeliveryDelay(
+        string factType,
+        string? externalReference,
+        string attributesJson,
+        out string metric,
+        out string shipmentId,
+        out double value,
+        out bool hasNumericValue,
+        out string? eventType,
+        out string? cargoType)
     {
+        metric = string.Empty;
         shipmentId = string.Empty;
-        delayMinutes = 0;
+        value = 0;
+        hasNumericValue = false;
+        eventType = null;
+        cargoType = null;
 
         try
         {
@@ -202,6 +253,16 @@ public sealed class SlaEvaluationService
             if (root.TryGetProperty("shipmentId", out var shipmentIdProp) && shipmentIdProp.ValueKind == JsonValueKind.String)
             {
                 shipmentId = shipmentIdProp.GetString() ?? string.Empty;
+            }
+
+            if (root.TryGetProperty("cargoType", out var cargoTypeProp) && cargoTypeProp.ValueKind == JsonValueKind.String)
+            {
+                cargoType = cargoTypeProp.GetString();
+            }
+
+            if (root.TryGetProperty("eventType", out var eventTypeProp) && eventTypeProp.ValueKind == JsonValueKind.String)
+            {
+                eventType = eventTypeProp.GetString();
             }
 
             if (string.IsNullOrWhiteSpace(shipmentId))
@@ -214,18 +275,31 @@ public sealed class SlaEvaluationService
                 return false;
             }
 
+            metric = factType;
+            if (!IsSupportedMetric(metric))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(eventType))
+            {
+                eventType = metric;
+            }
+
             if (root.TryGetProperty("valueNumber", out var valueNumberProp))
             {
                 if (valueNumberProp.ValueKind == JsonValueKind.Number && valueNumberProp.TryGetDouble(out var parsed))
                 {
-                    delayMinutes = parsed;
+                    value = parsed;
+                    hasNumericValue = true;
                     return true;
                 }
 
                 if (valueNumberProp.ValueKind == JsonValueKind.String &&
                     double.TryParse(valueNumberProp.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
                 {
-                    delayMinutes = parsed;
+                    value = parsed;
+                    hasNumericValue = true;
                     return true;
                 }
             }
@@ -235,12 +309,13 @@ public sealed class SlaEvaluationService
                 var factValue = factValueProp.GetString();
                 if (double.TryParse(factValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
                 {
-                    delayMinutes = parsed;
+                    value = parsed;
+                    hasNumericValue = true;
                     return true;
                 }
             }
 
-            return false;
+            return true;
         }
         catch (JsonException)
         {
@@ -265,34 +340,73 @@ public sealed class SlaEvaluationService
         string ruleName,
         string conditionJson,
         string penaltyJson,
+        string? scopeJson,
+        string? conditionTypeRaw,
+        decimal? minValueRaw,
+        decimal? maxValueRaw,
+        out string metric,
+        out string conditionType,
         out string @operator,
         out double threshold,
-        out decimal penaltyAmount)
+        out decimal penaltyAmount,
+        out string? cargoTypeScope,
+        out string? eventType)
     {
+        metric = string.Empty;
+        conditionType = SlaRule.ConditionTypeThreshold;
         @operator = ">";
         threshold = 0;
         penaltyAmount = 0;
+        cargoTypeScope = null;
+        eventType = null;
 
         try
         {
             using var conditionDoc = JsonDocument.Parse(conditionJson);
             var condition = conditionDoc.RootElement;
 
-            var metric =
+            metric =
                 GetOptionalString(condition, "metric")
                 ?? GetOptionalString(condition, "factType")
                 ?? ruleName;
 
-            if (!string.Equals(metric, "DELIVERY_DELAY", StringComparison.OrdinalIgnoreCase))
+            if (!IsSupportedMetric(metric))
             {
                 return false;
             }
 
-            @operator = GetOptionalString(condition, "operator") ?? ">";
+            conditionType = string.IsNullOrWhiteSpace(conditionTypeRaw)
+                ? SlaRule.ConditionTypeThreshold
+                : conditionTypeRaw.Trim().ToLowerInvariant();
 
-            if (!TryGetDouble(condition, "threshold", out threshold))
+            if (conditionType != SlaRule.ConditionTypeThreshold && conditionType != SlaRule.ConditionTypeRange)
             {
-                return false;
+                if (conditionType != SlaRule.ConditionTypeBoolean)
+                {
+                    return false;
+                }
+            }
+
+            if (conditionType == SlaRule.ConditionTypeBoolean)
+            {
+                eventType = GetOptionalString(condition, "eventType");
+                if (string.IsNullOrWhiteSpace(eventType))
+                {
+                    eventType = string.IsNullOrWhiteSpace(ruleName) ? null : ruleName;
+                }
+                if (string.IsNullOrWhiteSpace(eventType))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                @operator = GetOptionalString(condition, "operator") ?? ">";
+
+                if (conditionType == SlaRule.ConditionTypeThreshold && !TryGetDouble(condition, "threshold", out threshold))
+                {
+                    return false;
+                }
             }
 
             using var penaltyDoc = JsonDocument.Parse(penaltyJson);
@@ -305,12 +419,30 @@ public sealed class SlaEvaluationService
                 return false;
             }
 
+            if (conditionType == SlaRule.ConditionTypeRange && (!minValueRaw.HasValue || !maxValueRaw.HasValue || minValueRaw > maxValueRaw))
+            {
+                return false;
+            }
+
+            if (!TryGetScopeCargoType(scopeJson, out cargoTypeScope))
+            {
+                return false;
+            }
+
             return true;
         }
         catch (JsonException)
         {
             return false;
         }
+    }
+
+    private static bool IsSupportedMetric(string? metric)
+    {
+        return string.Equals(metric, "DELIVERY_DELAY", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(metric, "TEMPERATURE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(metric, "MISSING_DOCS", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(metric, "DOCUMENT_MISSING", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryExtractShipmentIdFromCalculatedValues(string json, out string shipmentId)
@@ -388,5 +520,35 @@ public sealed class SlaEvaluationService
         }
 
         return false;
+    }
+
+    private static bool TryGetScopeCargoType(string? scopeJson, out string? cargoTypeScope)
+    {
+        cargoTypeScope = null;
+        if (string.IsNullOrWhiteSpace(scopeJson))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(scopeJson);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (root.TryGetProperty("cargoType", out var cargoTypeProp) && cargoTypeProp.ValueKind == JsonValueKind.String)
+            {
+                cargoTypeScope = cargoTypeProp.GetString();
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

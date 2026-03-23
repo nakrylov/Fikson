@@ -16,6 +16,27 @@ public sealed class SlaRuleConfiguration : IEntityTypeConfiguration<SlaRule>
         builder.Property(x => x.CompanyId).IsRequired();
         builder.Property(x => x.ContractId).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.ScopeJson)
+            .HasColumnName("scope_json")
+            .HasColumnType("jsonb")
+            .IsRequired(false);
+        builder.Property(x => x.ConditionType)
+            .HasColumnName("condition_type")
+            .HasMaxLength(32)
+            .HasDefaultValue(SlaRule.ConditionTypeThreshold)
+            .IsRequired();
+        builder.Property(x => x.MinValue)
+            .HasColumnName("min_value")
+            .HasColumnType("numeric")
+            .IsRequired(false);
+        builder.Property(x => x.MaxValue)
+            .HasColumnName("max_value")
+            .HasColumnType("numeric")
+            .IsRequired(false);
+        builder.Property(x => x.EventType)
+            .HasColumnName("event_type")
+            .HasColumnType("text")
+            .IsRequired(false);
         builder.Property(x => x.IsActive).IsRequired();
         builder.Property(x => x.CreatedAt).HasColumnType("timestamp with time zone").IsRequired();
 

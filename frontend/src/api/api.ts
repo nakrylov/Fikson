@@ -403,6 +403,23 @@ export type SlaRule = {
   operator: string;
   threshold: number;
   penaltyAmount: number;
+  conditionType?: 'threshold' | 'range' | 'boolean';
+  minValue?: number | null;
+  maxValue?: number | null;
+  eventType?: string | null;
+  scope?: unknown;
+};
+
+export type CreateSlaRulePayload = {
+  metric: string;
+  operator?: string;
+  threshold?: number;
+  penaltyAmount: number;
+  conditionType?: 'threshold' | 'range' | 'boolean';
+  minValue?: number | null;
+  maxValue?: number | null;
+  eventType?: string;
+  scope?: unknown;
 };
 
 export async function getSlaRules(contractId: string, versionId: string): Promise<SlaRule[]> {
@@ -417,7 +434,7 @@ export async function getSlaRules(contractId: string, versionId: string): Promis
 export async function createSlaRule(
   contractId: string,
   versionId: string,
-  rule: Omit<SlaRule, 'id'>
+  rule: CreateSlaRulePayload
 ): Promise<void> {
   await apiRequest<void>(
     `/api/contracts/${encodeURIComponent(contractId)}/versions/${encodeURIComponent(versionId)}/rules`,
@@ -451,9 +468,9 @@ export async function getFactImports(): Promise<FactImport[]> {
 
 const FACT_IMPORT_TEMPLATE_FILE_NAME = 'fact_import_template.csv';
 const FACT_IMPORT_TEMPLATE_CONTENT =
-  'shipmentId;factType;eventTime;value\n' +
-  'SHP-001;DELIVERY_DELAY;2026-01-01T10:00:00Z;45\n' +
-  'SHP-002;DELIVERY_DELAY;2026-01-01T11:00:00Z;10\n';
+  'shipmentId;factType;eventType;cargoType;eventTime;value;counterpartyCode\n' +
+  'SHP-001;DELIVERY_DELAY;DELIVERY_DELAY;ICE_CREAM;2026-01-01T10:00:00Z;45;CONTOSO\n' +
+  'SHP-002;DOCUMENT_MISSING;DOCUMENT_MISSING;FROZEN_FISH;2026-01-01T11:00:00Z;1;NORTHWIND\n';
 
 function triggerFileDownload(blob: Blob, fileName: string): void {
   const objectUrl = window.URL.createObjectURL(blob);

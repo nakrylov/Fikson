@@ -777,19 +777,43 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ConditionType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("threshold")
+                        .HasColumnName("condition_type");
+
                     b.Property<Guid>("ContractId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("EventType")
+                        .HasColumnType("text")
+                        .HasColumnName("event_type");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<decimal?>("MaxValue")
+                        .HasColumnType("numeric")
+                        .HasColumnName("max_value");
+
+                    b.Property<decimal?>("MinValue")
+                        .HasColumnType("numeric")
+                        .HasColumnName("min_value");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ScopeJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("scope_json");
 
                     b.HasKey("Id");
 

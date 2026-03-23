@@ -407,6 +407,11 @@ FOR UPDATE")
             {
                 rule.Id,
                 rule.Name,
+                rule.ScopeJson,
+                rule.ConditionType,
+                rule.MinValue,
+                rule.MaxValue,
+                rule.EventType,
                 ruleVersion.VersionNumber,
                 ruleVersion.ConditionJson,
                 ruleVersion.PenaltyJson
@@ -422,6 +427,11 @@ FOR UPDATE")
                 metric = TryReadString(x.ConditionJson, "metric") ?? x.Name,
                 @operator = TryReadString(x.ConditionJson, "operator") ?? ">",
                 threshold = TryReadDecimal(x.ConditionJson, "threshold") ?? 0m,
+                conditionType = x.ConditionType,
+                minValue = x.MinValue,
+                maxValue = x.MaxValue,
+                eventType = x.EventType,
+                scope = TryReadJsonElement(x.ScopeJson),
                 penaltyAmount = TryReadDecimal(x.PenaltyJson, "penaltyAmount")
                     ?? TryReadDecimal(x.PenaltyJson, "Value")
                     ?? TryReadDecimal(x.PenaltyJson, "value")
@@ -447,9 +457,54 @@ FOR UPDATE")
             return Results.BadRequest(new { error = "Metric is required." });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Operator))
+        if (!TryNormalizeScope(request.Scope, out var scopeJson, out var scopeError))
         {
-            return Results.BadRequest(new { error = "Operator is required." });
+            return Results.BadRequest(new { error = scopeError });
+        }
+
+        var conditionType = (request.ConditionType ?? SlaRule.ConditionTypeThreshold).Trim().ToLowerInvariant();
+        if (conditionType != SlaRule.ConditionTypeThreshold
+            && conditionType != SlaRule.ConditionTypeRange
+            && conditionType != SlaRule.ConditionTypeBoolean)
+        {
+            return Results.BadRequest(new { error = "ConditionType must be 'threshold', 'range', or 'boolean'." });
+        }
+
+        if (conditionType == SlaRule.ConditionTypeThreshold)
+        {
+            if (string.IsNullOrWhiteSpace(request.Operator))
+            {
+                return Results.BadRequest(new { error = "Operator is required for threshold condition." });
+            }
+
+            if (!request.Threshold.HasValue)
+            {
+                return Results.BadRequest(new { error = "Threshold is required for threshold condition." });
+            }
+        }
+        else if (conditionType == SlaRule.ConditionTypeRange)
+        {
+            if (!request.MinValue.HasValue || !request.MaxValue.HasValue)
+            {
+                return Results.BadRequest(new { error = "MinValue and MaxValue are required for range condition." });
+            }
+
+            if (request.MinValue.Value > request.MaxValue.Value)
+            {
+                return Results.BadRequest(new { error = "MinValue must be less than or equal to MaxValue." });
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.EventType))
+            {
+                return Results.BadRequest(new { error = "EventType is required for boolean condition." });
+            }
+
+            if (request.Operator is not null || request.Threshold.HasValue || request.MinValue.HasValue || request.MaxValue.HasValue)
+            {
+                return Results.BadRequest(new { error = "Boolean condition cannot have operator/threshold/min/max values." });
+            }
         }
 
         var versionExists = await db.ContractVersions
@@ -464,13 +519,24 @@ FOR UPDATE")
             contractId: contractId,
             name: request.Metric.Trim(),
             createdAt: now,
-            isActive: true);
+            isActive: true,
+            scopeJson: scopeJson,
+            conditionType: conditionType,
+            minValue: conditionType == SlaRule.ConditionTypeRange ? request.MinValue : null,
+            maxValue: conditionType == SlaRule.ConditionTypeRange ? request.MaxValue : null,
+            eventType: conditionType == SlaRule.ConditionTypeBoolean ? request.EventType : null,
+            operatorValue: request.Operator,
+            thresholdValue: request.Threshold);
 
         var conditionJson = JsonSerializer.Serialize(new
         {
             metric = request.Metric.Trim(),
-            @operator = request.Operator.Trim(),
-            threshold = request.Threshold
+            @operator = request.Operator?.Trim(),
+            threshold = request.Threshold ?? 0m,
+            conditionType = conditionType,
+            minValue = conditionType == SlaRule.ConditionTypeRange ? request.MinValue : null,
+            maxValue = conditionType == SlaRule.ConditionTypeRange ? request.MaxValue : null,
+            eventType = conditionType == SlaRule.ConditionTypeBoolean ? request.EventType?.Trim() : null
         });
         var penaltyJson = JsonSerializer.Serialize(new
         {
@@ -500,8 +566,13 @@ FOR UPDATE")
         {
             id = rule.Id,
             metric = request.Metric.Trim(),
-            @operator = request.Operator.Trim(),
-            threshold = request.Threshold,
+            @operator = request.Operator?.Trim(),
+            threshold = request.Threshold ?? 0m,
+            conditionType = conditionType,
+            minValue = conditionType == SlaRule.ConditionTypeRange ? request.MinValue : null,
+            maxValue = conditionType == SlaRule.ConditionTypeRange ? request.MaxValue : null,
+            eventType = conditionType == SlaRule.ConditionTypeBoolean ? request.EventType?.Trim() : null,
+            scope = TryReadJsonElement(scopeJson),
             penaltyAmount = request.PenaltyAmount
         });
     }
@@ -865,6 +936,66 @@ FOR UPDATE")
 
         return null;
     }
+
+    private static object? TryReadJsonElement(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryNormalizeScope(JsonElement? scope, out string? scopeJson, out string? error)
+    {
+        scopeJson = null;
+        error = null;
+
+        if (!scope.HasValue || scope.Value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        var value = scope.Value;
+        if (value.ValueKind == JsonValueKind.String)
+        {
+            var raw = value.GetString();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return true;
+            }
+
+            try
+            {
+                using var parsed = JsonDocument.Parse(raw);
+                scopeJson = parsed.RootElement.GetRawText();
+                return true;
+            }
+            catch (JsonException)
+            {
+                error = "Scope must be valid JSON.";
+                return false;
+            }
+        }
+
+        if (value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+        {
+            scopeJson = value.GetRawText();
+            return true;
+        }
+
+        error = "Scope must be a JSON object, array, or JSON string.";
+        return false;
+    }
 }
 
 public sealed class CreateContractRequest
@@ -894,7 +1025,12 @@ public sealed class UpdateContractRequest
 public sealed class CreateSlaRuleRequest
 {
     public string Metric { get; set; } = null!;
-    public string Operator { get; set; } = null!;
-    public decimal Threshold { get; set; }
+    public string? Operator { get; set; } = null!;
+    public decimal? Threshold { get; set; }
+    public string ConditionType { get; set; } = SlaRule.ConditionTypeThreshold;
+    public decimal? MinValue { get; set; }
+    public decimal? MaxValue { get; set; }
+    public string? EventType { get; set; }
     public decimal PenaltyAmount { get; set; }
+    public JsonElement? Scope { get; set; }
 }
