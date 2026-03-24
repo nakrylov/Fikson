@@ -18,9 +18,10 @@ public static class ClaimsEndpoints
         FixonDbContext db,
         CancellationToken ct)
     {
-        var items = await (
+        var rows = await (
             from claim in db.Claims.AsNoTracking()
             join ruleVersion in db.SlaRuleVersions.AsNoTracking() on claim.SlaRuleVersionId equals ruleVersion.Id
+            join rule in db.SlaRules.AsNoTracking() on ruleVersion.SlaRuleId equals rule.Id
             join violation in db.SlaViolations.AsNoTracking() on claim.SlaViolationId equals violation.Id
             orderby claim.OpenedAt descending
             select new
@@ -28,10 +29,38 @@ public static class ClaimsEndpoints
                 id = claim.Id,
                 shipmentId = ExtractShipmentId(violation.CalculatedValuesJson),
                 ruleId = ruleVersion.SlaRuleId,
+                ruleName = rule.Name,
+                conditionType = rule.ConditionType,
+                minValue = rule.MinValue,
+                maxValue = rule.MaxValue,
+                eventType = rule.EventType,
+                scopeJson = rule.ScopeJson,
+                conditionJson = ruleVersion.ConditionJson,
+                calculatedValuesJson = violation.CalculatedValuesJson,
                 penaltyAmount = claim.Amount,
+                currency = claim.Currency,
                 createdAt = claim.OpenedAt
             })
             .ToListAsync(ct);
+
+        var items = rows.Select(row => new
+        {
+            row.id,
+            row.shipmentId,
+            row.ruleId,
+            metric = TryReadString(row.conditionJson, "metric") ?? row.ruleName,
+            conditionType = string.IsNullOrWhiteSpace(row.conditionType) ? "threshold" : row.conditionType,
+            @operator = TryReadString(row.conditionJson, "operator") ?? ">",
+            threshold = TryReadDecimal(row.conditionJson, "threshold"),
+            row.minValue,
+            row.maxValue,
+            row.eventType,
+            scope = TryReadJsonElement(row.scopeJson),
+            calculatedValues = TryReadJsonElement(row.calculatedValuesJson),
+            row.penaltyAmount,
+            row.currency,
+            row.createdAt
+        }).ToList();
 
         return Results.Ok(items);
     }
@@ -420,6 +449,70 @@ public static class ClaimsEndpoints
         }
 
         return null;
+    }
+
+    private static string? TryReadString(string json, string propertyName)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty(propertyName, out var p) && p.ValueKind == JsonValueKind.String)
+            {
+                return p.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // keep null
+        }
+
+        return null;
+    }
+
+    private static decimal? TryReadDecimal(string json, string propertyName)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty(propertyName, out var p))
+            {
+                return null;
+            }
+
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var numberValue))
+            {
+                return numberValue;
+            }
+
+            if (p.ValueKind == JsonValueKind.String && decimal.TryParse(p.GetString(), out var stringValue))
+            {
+                return stringValue;
+            }
+        }
+        catch (JsonException)
+        {
+            // keep null
+        }
+
+        return null;
+    }
+
+    private static object? TryReadJsonElement(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }
 

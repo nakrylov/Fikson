@@ -82,7 +82,14 @@ export const en = {
     range: 'Range',
     eventType: 'Event type',
     boolean: 'Boolean',
+    templates: 'Select template',
+    useTemplate: 'Use template',
+    templateDescriptionLateDelivery: 'Delay > 30',
+    templateDescriptionTemperature: '-25 ... -18',
+    templateDescriptionMissingDocs: 'Event-based',
     penalty: 'Penalty amount',
+    if: 'IF',
+    and: 'AND',
     booleanCondition: 'Condition is true',
     preview: 'Preview',
     metrics: {
@@ -105,6 +112,8 @@ export const en = {
     rule: 'Rule',
     penalty: 'Penalty',
     created: 'Created at',
+    showDetails: 'Show details',
+    hideDetails: 'Hide details',
     empty: 'No claims',
     openPage: 'Open claims page'
   },

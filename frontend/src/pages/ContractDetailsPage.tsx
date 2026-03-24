@@ -22,6 +22,7 @@ import { Card } from '../components/Card';
 import { FormField } from '../components/FormField';
 import { Input } from '../components/Input';
 import { metrics } from '../constants/metrics';
+import { ruleTemplates } from '../constants/ruleTemplates';
 import { t } from '../i18n';
 
 /**
@@ -52,12 +53,14 @@ export function ContractDetailsPage() {
   const [loadingDashboard, setLoadingDashboard] = React.useState<boolean>(false);
   const [errorDashboard, setErrorDashboard] = React.useState<string | null>(null);
   const [metricDraft, setMetricDraft] = React.useState<string>('DELIVERY_DELAY');
+  const [templateDraft, setTemplateDraft] = React.useState<string>('');
   const [conditionTypeDraft, setConditionTypeDraft] = React.useState<'threshold' | 'range' | 'boolean'>('threshold');
   const [operatorDraft, setOperatorDraft] = React.useState<string>('>');
   const [thresholdDraft, setThresholdDraft] = React.useState<string>('0');
   const [minValueDraft, setMinValueDraft] = React.useState<string>('');
   const [maxValueDraft, setMaxValueDraft] = React.useState<string>('');
   const [eventTypeDraft, setEventTypeDraft] = React.useState<string>('DOCUMENT_MISSING');
+  const [cargoTypeScopeDraft, setCargoTypeScopeDraft] = React.useState<string>('');
   const [penaltyDraft, setPenaltyDraft] = React.useState<string>('0');
   const thresholdValue = Number(thresholdDraft);
   const minValue = Number(minValueDraft);
@@ -89,6 +92,52 @@ export function ContractDetailsPage() {
     if (metricCode === 'TEMPERATURE') return t.rules.metrics.temperature;
     if (metricCode === 'MISSING_DOCS') return t.rules.metrics.missingDocs;
     return metricCode;
+  }, []);
+
+  const readCargoTypeScope = React.useCallback((scope: unknown): string | undefined => {
+    if (!scope || typeof scope !== 'object' || Array.isArray(scope)) {
+      return undefined;
+    }
+    const value = (scope as Record<string, unknown>).cargoType;
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+  }, []);
+
+  const buildRuleDescription = React.useCallback(
+    (input: {
+      metric: string;
+      conditionType: 'threshold' | 'range' | 'boolean';
+      operator?: string;
+      threshold?: string | number;
+      minValue?: string | number | null;
+      maxValue?: string | number | null;
+      eventType?: string | null;
+      cargoType?: string;
+      penaltyAmount: string | number;
+    }) => {
+      let text = '';
+      if (input.conditionType === 'threshold') {
+        text = `${t.rules.if} ${getMetricLabel(input.metric)} ${input.operator ?? '>'} ${input.threshold ?? 0}`;
+      } else if (input.conditionType === 'range') {
+        text = `${t.rules.if} ${getMetricLabel(input.metric)} NOT IN [${input.minValue ?? 0} ... ${input.maxValue ?? 0}]`;
+      } else {
+        text = `${t.rules.if} ${input.eventType ?? 'DOCUMENT_MISSING'} occurred`;
+      }
+
+      if (input.cargoType && input.cargoType.trim().length > 0) {
+        text += ` ${t.rules.and} cargoType = ${input.cargoType.trim()}`;
+      }
+
+      text += ` -> ${t.rules.penalty} ${input.penaltyAmount}`;
+      return text;
+    },
+    [getMetricLabel]
+  );
+
+  const getTemplateDescription = React.useCallback((templateKey: string) => {
+    if (templateKey === 'delivery_delay') return t.rules.templateDescriptionLateDelivery;
+    if (templateKey === 'temperature') return t.rules.templateDescriptionTemperature;
+    if (templateKey === 'missing_docs') return t.rules.templateDescriptionMissingDocs;
+    return '';
   }, []);
 
   const loadContract = React.useCallback(async () => {
@@ -263,6 +312,8 @@ export function ContractDetailsPage() {
   );
 
   React.useEffect(() => {
+    if (templateDraft) return;
+
     if (metricDraft === 'TEMPERATURE') {
       setConditionTypeDraft('range');
       return;
@@ -273,7 +324,23 @@ export function ContractDetailsPage() {
       return;
     }
     setConditionTypeDraft('threshold');
-  }, [metricDraft]);
+  }, [metricDraft, templateDraft]);
+
+  const onTemplateSelect = React.useCallback((templateKey: string) => {
+    setTemplateDraft(templateKey);
+    const template = ruleTemplates.find((item) => item.key === templateKey);
+    if (!template) {
+      return;
+    }
+
+    setMetricDraft(template.metric);
+    setConditionTypeDraft(template.conditionType);
+    setOperatorDraft(template.operator ?? '>');
+    setThresholdDraft(template.threshold !== undefined ? String(template.threshold) : '');
+    setMinValueDraft(template.minValue !== undefined ? String(template.minValue) : '');
+    setMaxValueDraft(template.maxValue !== undefined ? String(template.maxValue) : '');
+    setEventTypeDraft(template.eventType ?? 'DOCUMENT_MISSING');
+  }, []);
 
   const onCreateRule = React.useCallback(async () => {
     if (!id || !activatedVersion) return;
@@ -299,6 +366,7 @@ export function ContractDetailsPage() {
         minValue: isRangeCondition ? minValue : undefined,
         maxValue: isRangeCondition ? maxValue : undefined,
         eventType: isBooleanCondition ? eventTypeDraft.trim() : undefined,
+        scope: cargoTypeScopeDraft.trim().length > 0 ? { cargoType: cargoTypeScopeDraft.trim() } : undefined,
         penaltyAmount: penaltyValue,
       });
       await loadRules();
@@ -309,13 +377,14 @@ export function ContractDetailsPage() {
       setMinValueDraft('');
       setMaxValueDraft('');
       setEventTypeDraft('DOCUMENT_MISSING');
+      setCargoTypeScopeDraft('');
       setPenaltyDraft('');
     } catch {
       setErrorRules(t.common.requestFailed);
     } finally {
       setRuleActionLoading(false);
     }
-  }, [id, activatedVersion, canCreateRule, isRangeCondition, isBooleanCondition, conditionTypeDraft, isThresholdCondition, selectedMetric, operatorDraft, thresholdValue, minValue, maxValue, eventTypeDraft, penaltyValue, loadRules]);
+  }, [id, activatedVersion, canCreateRule, isRangeCondition, isBooleanCondition, conditionTypeDraft, isThresholdCondition, selectedMetric, operatorDraft, thresholdValue, minValue, maxValue, eventTypeDraft, cargoTypeScopeDraft, penaltyValue, loadRules]);
 
   const onDeleteRule = React.useCallback(
     async (ruleId: string) => {
@@ -500,10 +569,33 @@ export function ContractDetailsPage() {
         ) : (
           <>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700">{t.rules.useTemplate}</div>
+                <div className="flex gap-3 flex-wrap">
+                  {ruleTemplates.map((template) => (
+                    <button
+                      key={template.key}
+                      type="button"
+                      onClick={() => onTemplateSelect(template.key)}
+                      disabled={ruleActionLoading}
+                      className={[
+                        'border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition text-left',
+                        templateDraft === template.key ? 'border-blue-500 bg-blue-50' : ''
+                      ].join(' ')}
+                    >
+                      <div className="font-medium">{template.name}</div>
+                      <div className="text-sm text-gray-600">{getTemplateDescription(template.key)}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <FormField label={t.rules.metric}>
                 <select
                   value={metricDraft}
-                  onChange={(ev) => setMetricDraft(ev.target.value)}
+                  onChange={(ev) => {
+                    setTemplateDraft('');
+                    setMetricDraft(ev.target.value);
+                  }}
                   disabled={ruleActionLoading}
                 >
                   {metrics.map((metric) => (
@@ -606,15 +698,27 @@ export function ContractDetailsPage() {
                   <span>EUR</span>
                 </div>
               </FormField>
-              <div className="bg-gray-50 p-3 rounded border">
+              <FormField label="cargoType (scope)">
+                <Input
+                  value={cargoTypeScopeDraft}
+                  onChange={(ev) => setCargoTypeScopeDraft(ev.target.value)}
+                  disabled={ruleActionLoading}
+                  placeholder="ICE_CREAM"
+                />
+              </FormField>
+              <div className="bg-gray-50 border rounded p-3 text-sm text-gray-700">
                 {t.rules.preview}:{' '}
-                {isBooleanCondition ? (
-                  <>IF {t.rules.boolean}: {eventTypeDraft || 'DOCUMENT_MISSING'} -&gt; penalty {penaltyDraft || '0'} €</>
-                ) : isRangeCondition ? (
-                  <>IF {getMetricLabel(selectedMetric.code)} {t.rules.range} [{minValueDraft || '0'} ... {maxValueDraft || '0'}] {selectedMetric.unit} -&gt; penalty {penaltyDraft || '0'} €</>
-                ) : (
-                  <>IF {getMetricLabel(selectedMetric.code)} {operatorDraft} {thresholdDraft || '0'} {selectedMetric.unit} -&gt; penalty {penaltyDraft || '0'} €</>
-                )}
+                {buildRuleDescription({
+                  metric: selectedMetric.code,
+                  conditionType: conditionTypeDraft,
+                  operator: operatorDraft,
+                  threshold: thresholdDraft || '0',
+                  minValue: minValueDraft || '0',
+                  maxValue: maxValueDraft || '0',
+                  eventType: eventTypeDraft || 'DOCUMENT_MISSING',
+                  cargoType: cargoTypeScopeDraft || undefined,
+                  penaltyAmount: penaltyDraft || '0'
+                })}
               </div>
               <Button
                 type="button"
@@ -640,6 +744,7 @@ export function ContractDetailsPage() {
                     <th>{t.rules.metric}</th>
                     <th>{t.rules.operator}</th>
                     <th>{t.rules.threshold}</th>
+                    <th>Description</th>
                     <th>{t.rules.penalty}</th>
                     <th>{t.contracts.actions}</th>
                   </tr>
@@ -653,6 +758,19 @@ export function ContractDetailsPage() {
                         {rule.conditionType === 'range'
                           ? `[${rule.minValue ?? ''} ... ${rule.maxValue ?? ''}]`
                           : (rule.conditionType === 'boolean' ? `${t.rules.eventType}: ${rule.eventType ?? 'DOCUMENT_MISSING'}` : rule.threshold)}
+                      </td>
+                      <td>
+                        {buildRuleDescription({
+                          metric: rule.metric,
+                          conditionType: rule.conditionType ?? 'threshold',
+                          operator: rule.operator,
+                          threshold: rule.threshold,
+                          minValue: rule.minValue,
+                          maxValue: rule.maxValue,
+                          eventType: rule.eventType,
+                          cargoType: readCargoTypeScope(rule.scope),
+                          penaltyAmount: rule.penaltyAmount
+                        })}
                       </td>
                       <td>{rule.penaltyAmount}</td>
                       <td>

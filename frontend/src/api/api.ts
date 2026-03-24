@@ -567,7 +567,17 @@ export type Claim = {
   id: string;
   shipmentId: string | null;
   ruleId: string;
+  metric?: string;
+  conditionType?: 'threshold' | 'range' | 'boolean';
+  operator?: string;
+  threshold?: number | null;
+  minValue?: number | null;
+  maxValue?: number | null;
+  eventType?: string | null;
+  scope?: unknown;
+  calculatedValues?: Record<string, unknown> | null;
   penaltyAmount: number;
+  currency?: string;
   createdAt: string;
 };
 
