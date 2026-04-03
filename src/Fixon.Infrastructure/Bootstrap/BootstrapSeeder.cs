@@ -1,6 +1,7 @@
 using Fixon.Application.Bootstrap;
 using Fixon.Domain.Companies;
 using Fixon.Domain.Contracts;
+using Fixon.Domain.Facts;
 using Fixon.Domain.Users;
 using Fixon.Domain.Sla;
 using Fixon.Infrastructure.Persistence;
@@ -31,6 +32,7 @@ public sealed class BootstrapSeeder : IBootstrapSeeder
     public async Task EnsureSeededAsync(CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
+        await EnsureFactTypeDefinitionsAsync(now, ct);
 
         // Company (tenant)
         var company = await _db.Companies.SingleOrDefaultAsync(x => x.Id == _options.TenantId, ct);
@@ -129,6 +131,76 @@ public sealed class BootstrapSeeder : IBootstrapSeeder
 
             await _db.SaveChangesAsync(ct);
         }
+    }
+
+    private async Task EnsureFactTypeDefinitionsAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var existingEventTypes = await _db.FactTypeDefinitions
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Select(x => x.EventType)
+            .ToListAsync(ct);
+
+        var existingSet = new HashSet<string>(existingEventTypes, StringComparer.OrdinalIgnoreCase);
+        var seedRows = new[]
+        {
+            new FactTypeDefinition(
+                id: Guid.NewGuid(),
+                eventType: "TEMPERATURE_READING",
+                displayName: "Temperature reading",
+                valueType: FactTypeDefinition.ValueTypeNumber,
+                defaultConditionType: FactTypeDefinition.ConditionTypeRange,
+                unit: "°C",
+                isActive: true,
+                createdAt: now),
+            new FactTypeDefinition(
+                id: Guid.NewGuid(),
+                eventType: "DELIVERY_DELAY",
+                displayName: "Delivery delay",
+                valueType: FactTypeDefinition.ValueTypeNumber,
+                defaultConditionType: FactTypeDefinition.ConditionTypeThreshold,
+                unit: null,
+                isActive: true,
+                createdAt: now),
+            new FactTypeDefinition(
+                id: Guid.NewGuid(),
+                eventType: "DOCUMENT_MISSING",
+                displayName: "Document missing",
+                valueType: FactTypeDefinition.ValueTypeBoolean,
+                defaultConditionType: FactTypeDefinition.ConditionTypeBoolean,
+                unit: null,
+                isActive: true,
+                createdAt: now),
+            new FactTypeDefinition(
+                id: Guid.NewGuid(),
+                eventType: "DELIVERY_PLANNED",
+                displayName: "Delivery planned",
+                valueType: FactTypeDefinition.ValueTypeDatetime,
+                defaultConditionType: FactTypeDefinition.ConditionTypeThreshold,
+                unit: null,
+                isActive: true,
+                createdAt: now),
+            new FactTypeDefinition(
+                id: Guid.NewGuid(),
+                eventType: "DELIVERY_ACTUAL",
+                displayName: "Delivery actual",
+                valueType: FactTypeDefinition.ValueTypeDatetime,
+                defaultConditionType: FactTypeDefinition.ConditionTypeThreshold,
+                unit: null,
+                isActive: true,
+                createdAt: now)
+        };
+
+        var newRows = seedRows
+            .Where(x => !existingSet.Contains(x.EventType))
+            .ToList();
+        if (newRows.Count == 0)
+        {
+            return;
+        }
+
+        _db.FactTypeDefinitions.AddRange(newRows);
+        await _db.SaveChangesAsync(ct);
     }
 }
 

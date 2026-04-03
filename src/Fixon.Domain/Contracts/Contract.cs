@@ -5,7 +5,7 @@ namespace Fixon.Domain.Contracts;
 
 public sealed class Contract : ActivatableTenantEntity
 {
-    public Guid CounterpartyId { get; private set; }
+    public Guid? CounterpartyId { get; private set; }
     public string Name { get; private set; } = null!;
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -20,7 +20,7 @@ public sealed class Contract : ActivatableTenantEntity
 
     private Contract() { } // EF / serialization
 
-    public Contract(Guid id, Guid companyId, Guid counterpartyId, string name, DateTimeOffset createdAt, bool isActive = true)
+    public Contract(Guid id, Guid companyId, Guid? counterpartyId, string name, DateTimeOffset createdAt, bool isActive = true)
     {
         Id = id;
         CompanyId = companyId;
@@ -51,6 +51,12 @@ public sealed class Contract : ActivatableTenantEntity
         if (Status == ContractStatus.Terminated) throw new InvalidOperationException("Contract is terminated.");
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name cannot be empty.", nameof(name));
         Name = name;
+    }
+
+    public void SetCounterparty(Guid? counterpartyId)
+    {
+        if (Status == ContractStatus.Terminated) throw new InvalidOperationException("Contract is terminated.");
+        CounterpartyId = counterpartyId;
     }
 }
 

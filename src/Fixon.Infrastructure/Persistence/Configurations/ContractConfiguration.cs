@@ -22,7 +22,9 @@ public sealed class ContractConfiguration : IEntityTypeConfiguration<Contract>
 
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.CompanyId).IsRequired();
-        builder.Property(x => x.CounterpartyId).IsRequired();
+        builder.Property(x => x.CounterpartyId)
+            .HasColumnName("counterparty_id")
+            .IsRequired(false);
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.Property(x => x.IsActive).IsRequired();
         builder.Property(x => x.CreatedAt).HasColumnType("timestamp with time zone").IsRequired();
@@ -35,7 +37,9 @@ public sealed class ContractConfiguration : IEntityTypeConfiguration<Contract>
 
         builder.HasOne(x => x.Counterparty)
             .WithMany()
-            .HasForeignKey(x => x.CounterpartyId);
+            .HasForeignKey(x => x.CounterpartyId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(x => x.Versions)
             .WithOne(v => v.Contract)

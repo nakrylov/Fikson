@@ -20,9 +20,27 @@ public sealed class DeliveryDelayEvaluator
                 .Select(x => x.CargoType)
                 .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
 
-            var applicableRules = rules
+            var applicableRulesBase = rules
                 .Where(r => string.IsNullOrWhiteSpace(r.CargoTypeScope)
-                    || string.Equals(cargoType, r.CargoTypeScope, StringComparison.OrdinalIgnoreCase));
+                    || string.Equals(cargoType, r.CargoTypeScope, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var factCounterpartyId = shipmentGroup
+                .Select(f => f.CounterpartyId)
+                .FirstOrDefault(id => id.HasValue);
+
+            IEnumerable<DeliveryDelayRuleInput> applicableRules;
+            if (factCounterpartyId.HasValue)
+            {
+                var preferred = applicableRulesBase
+                    .Where(r => r.ContractCounterpartyId == factCounterpartyId.Value)
+                    .ToList();
+                applicableRules = preferred.Count > 0 ? preferred : applicableRulesBase;
+            }
+            else
+            {
+                applicableRules = applicableRulesBase;
+            }
 
             foreach (var rule in applicableRules)
             {
@@ -129,7 +147,8 @@ public sealed record DeliveryDelayFactInput(
     double Value,
     bool HasNumericValue,
     string? EventType,
-    string? CargoType);
+    string? CargoType,
+    Guid? CounterpartyId = null);
 
 public sealed record DeliveryDelayRuleInput(
     Guid RuleId,
@@ -144,7 +163,8 @@ public sealed record DeliveryDelayRuleInput(
     string? CargoTypeScope,
     string? EventType,
     double? MinValue,
-    double? MaxValue);
+    double? MaxValue,
+    Guid? ContractCounterpartyId = null);
 
 public sealed record DeliveryDelayMatch(
     string ShipmentId,

@@ -26,7 +26,8 @@ import { t } from '../i18n';
 export interface Contract {
   id: string;
   name: string;
-  counterpartyId: string;
+  counterpartyId?: string | null;
+  counterpartyName?: string | null;
   status?: string;
 };
 
@@ -35,7 +36,8 @@ type ContractsListResponse = {
   items: Array<{
     id: string;
     name: string;
-    counterpartyId: string;
+    counterpartyId?: string | null;
+    counterpartyName?: string | null;
     status?: string | number;
   }>;
 };
@@ -43,7 +45,6 @@ type ContractsListResponse = {
 export function ContractsPage() {
   const { tenantId, role, memberships, setToken, logout } = useAuth();
   const navigate = useNavigate();
-  const counterpartyDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -52,14 +53,12 @@ export function ContractsPage() {
   const [showCreate, setShowCreate] = useState<boolean>(false);
   const [createName, setCreateName] = useState<string>('');
   const [createCounterpartyId, setCreateCounterpartyId] = useState<string>('');
+  const [newCounterpartyName, setNewCounterpartyName] = useState<string>('');
   const [createLoading, setCreateLoading] = useState<boolean>(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
   const [loadingCounterparties, setLoadingCounterparties] = useState<boolean>(false);
   const [counterpartyError, setCounterpartyError] = useState<string | null>(null);
-  const [counterpartyQuery, setCounterpartyQuery] = useState<string>('');
-  const [filteredCounterparties, setFilteredCounterparties] = useState<Counterparty[]>([]);
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const [isCreatingInline, setIsCreatingInline] = useState<boolean>(false);
 
   const [inviteEmail, setInviteEmail] = useState<string>('');
@@ -78,7 +77,8 @@ export function ContractsPage() {
     return {
       id: x.id,
       name: x.name,
-      counterpartyId: x.counterpartyId,
+      counterpartyId: x.counterpartyId ?? null,
+      counterpartyName: x.counterpartyName ?? null,
       status: x.status !== undefined && x.status !== null ? String(x.status) : undefined
     };
   }, []);
@@ -112,10 +112,6 @@ export function ContractsPage() {
     try {
       const items = await getCounterparties();
       setCounterparties(items);
-      setFilteredCounterparties(items);
-      if (!createCounterpartyId && items.length > 0) {
-        setCreateCounterpartyId(items[0].id);
-      }
     } catch (e: unknown) {
       if (e instanceof ApiError) {
         if (e.status === 403) setCounterpartyError(t.common.forbidden);
@@ -127,7 +123,7 @@ export function ContractsPage() {
     } finally {
       setLoadingCounterparties(false);
     }
-  }, [createCounterpartyId]);
+  }, []);
 
   useEffect(() => {
     void loadCounterparties();
@@ -136,32 +132,6 @@ export function ContractsPage() {
   useEffect(() => {
     setSelectedTenantId(tenantId ?? '');
   }, [tenantId]);
-
-  useEffect(() => {
-    const query = counterpartyQuery.trim().toLowerCase();
-    if (!query) {
-      setFilteredCounterparties(counterparties);
-      return;
-    }
-
-    setFilteredCounterparties(
-      counterparties.filter((cp) => cp.name.toLowerCase().includes(query))
-    );
-  }, [counterpartyQuery, counterparties]);
-
-  useEffect(() => {
-    const onDocumentMouseDown = (event: MouseEvent) => {
-      if (!counterpartyDropdownRef.current) return;
-      if (!counterpartyDropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-    };
-  }, []);
 
   const onCreateSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -190,7 +160,7 @@ export function ContractsPage() {
         await loadContracts();
         setCreateName('');
         setCreateCounterpartyId('');
-        setCounterpartyQuery('');
+        setNewCounterpartyName('');
         setShowCreate(false);
       } catch (e2: unknown) {
         if (e2 instanceof ApiError) {
@@ -208,14 +178,8 @@ export function ContractsPage() {
     [createName, createCounterpartyId, loadContracts]
   );
 
-  const onSelectCounterparty = useCallback((counterparty: Counterparty) => {
-    setCreateCounterpartyId(counterparty.id);
-    setCounterpartyQuery(counterparty.name);
-    setIsDropdownOpen(false);
-  }, []);
-
   const onCreateCounterpartyInline = useCallback(async () => {
-    const name = counterpartyQuery.trim();
+    const name = newCounterpartyName.trim();
     if (name.length < 2) {
       setCounterpartyError(t.common.validationError);
       return;
@@ -227,8 +191,7 @@ export function ContractsPage() {
       const created = await createCounterparty(name);
       await loadCounterparties();
       setCreateCounterpartyId(created.id);
-      setCounterpartyQuery('');
-      setIsDropdownOpen(false);
+      setNewCounterpartyName('');
     } catch (e: unknown) {
       if (e instanceof ApiError) {
         if (e.status === 400) setCounterpartyError(t.common.validationError);
@@ -241,13 +204,17 @@ export function ContractsPage() {
     } finally {
       setIsCreatingInline(false);
     }
-  }, [counterpartyQuery, loadCounterparties]);
+  }, [newCounterpartyName, loadCounterparties]);
 
   const tableRows = useMemo(() => contracts, [contracts]);
   const contractColumns = useMemo<Column<Contract>[]>(() => [
     { key: 'id', title: t.contracts.table.id },
     { key: 'name', title: t.contracts.table.name },
-    { key: 'counterpartyId', title: t.contracts.table.counterpartyId },
+    {
+      key: 'counterparty',
+      title: t.contracts.table.counterparty,
+      render: (c) => c.counterpartyName ?? c.counterpartyId ?? t.common.noData
+    },
     { key: 'status', title: t.contracts.table.status },
     {
       key: 'actions',
@@ -264,17 +231,6 @@ export function ContractsPage() {
     if (!inviteResult) return null;
     return `${window.location.origin}/join?token=${inviteResult.inviteToken}`;
   }, [inviteResult]);
-
-  const hasExactCounterpartyMatch = useMemo(() => {
-    const query = counterpartyQuery.trim().toLowerCase();
-    if (!query) return false;
-    return counterparties.some((cp) => cp.name.trim().toLowerCase() === query);
-  }, [counterpartyQuery, counterparties]);
-
-  const selectedCounterpartyName = useMemo(() => {
-    if (!createCounterpartyId) return '';
-    return counterparties.find((cp) => cp.id === createCounterpartyId)?.name ?? '';
-  }, [createCounterpartyId, counterparties]);
 
   const canSubmitContract = useMemo(() => {
     return createName.trim().length > 0 && createCounterpartyId.trim().length > 0 && !createLoading;
@@ -444,79 +400,46 @@ export function ContractsPage() {
                 error={Boolean(createNameFieldError)}
               />
             </FormField>
-            <div>
-              <div ref={counterpartyDropdownRef}>
-                <FormField label={t.contracts.counterparty} error={createCounterpartyFieldError}>
+            <FormField label={t.contracts.counterparty} error={createCounterpartyFieldError}>
+              <select
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                value={createCounterpartyId}
+                onChange={(ev) => setCreateCounterpartyId(ev.target.value)}
+                disabled={createLoading || loadingCounterparties}
+              >
+                <option value="">{t.contracts.selectCounterpartyPlaceholder}</option>
+                {counterparties.map((cp) => (
+                  <option key={cp.id} value={cp.id}>
+                    {cp.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <div className="text-sm text-gray-600">{t.contracts.selectOrCreateCompany}</div>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <FormField label={t.contracts.companyName}>
                   <Input
-                    value={counterpartyQuery}
-                    onFocus={() => setIsDropdownOpen(true)}
-                    onChange={(ev) => {
-                      setCounterpartyQuery(ev.target.value);
-                      setIsDropdownOpen(true);
-                    }}
-                    disabled={createLoading || loadingCounterparties}
-                    placeholder={selectedCounterpartyName || t.contracts.searchCompany}
-                    error={Boolean(createCounterpartyFieldError)}
+                    value={newCounterpartyName}
+                    onChange={(ev) => setNewCounterpartyName(ev.target.value)}
+                    disabled={createLoading || isCreatingInline}
+                    placeholder={t.contracts.companyName}
                   />
                 </FormField>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{t.contracts.selectOrCreateCompany}</div>
-                {isDropdownOpen ? (
-                  <div
-                    style={{
-                      border: '1px solid #ccc',
-                      maxHeight: 180,
-                      overflowY: 'auto',
-                      marginTop: 4
-                    }}
-                  >
-                    {filteredCounterparties.map((cp) => (
-                      <div
-                        key={cp.id}
-                        onClick={() => onSelectCounterparty(cp)}
-                        style={{ padding: 8, cursor: 'pointer' }}
-                        onMouseEnter={(ev) => {
-                          ev.currentTarget.style.backgroundColor = '#f5f5f5';
-                        }}
-                        onMouseLeave={(ev) => {
-                          ev.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                      >
-                        {cp.name}
-                      </div>
-                    ))}
-                    {filteredCounterparties.length === 0 ? (
-                      <div style={{ padding: 8 }}>{t.contracts.noResults}</div>
-                    ) : null}
-                    {counterpartyQuery.trim().length > 0 && !hasExactCounterpartyMatch ? (
-                      <div
-                        onClick={() => {
-                          if (!isCreatingInline) void onCreateCounterpartyInline();
-                        }}
-                        style={{
-                          padding: 8,
-                          cursor: isCreatingInline ? 'not-allowed' : 'pointer',
-                          color: isCreatingInline ? '#999' : '#0a58ca',
-                          borderTop: '1px solid #eee',
-                          fontWeight: 600,
-                          backgroundColor: isCreatingInline ? '#fafafa' : '#eef5ff'
-                        }}
-                        onMouseEnter={(ev) => {
-                          if (!isCreatingInline) ev.currentTarget.style.backgroundColor = '#deecff';
-                        }}
-                        onMouseLeave={(ev) => {
-                          ev.currentTarget.style.backgroundColor = isCreatingInline ? '#fafafa' : '#eef5ff';
-                        }}
-                      >
-                        {isCreatingInline
-                          ? t.common.creating
-                          : `+ ${t.contracts.createCompany} "${counterpartyQuery.trim()}"`}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
-              {loadingCounterparties ? <div>{t.common.loading}</div> : null}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void onCreateCounterpartyInline()}
+                disabled={createLoading || isCreatingInline || newCounterpartyName.trim().length < 2}
+              >
+                {isCreatingInline ? t.common.creating : t.contracts.createCompany}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => void loadCounterparties()} disabled={loadingCounterparties}>
+                {t.common.refresh}
+              </Button>
             </div>
+            {loadingCounterparties ? <div>{t.common.loading}</div> : null}
 
             <div className="flex gap-2 mt-2">
               <Button type="submit" variant="primary" disabled={!canSubmitContract}>

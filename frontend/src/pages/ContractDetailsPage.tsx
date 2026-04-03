@@ -6,16 +6,19 @@ import {
   ContractDashboard,
   ContractDetailsResponse,
   ContractVersion,
+  Counterparty,
   createSlaRule,
   createContractVersion,
   deleteSlaRule,
+  FactTypeDefinition,
   getContractDashboard,
   getContractDetailsWithEtag,
   getContractHistory,
+  getCounterparties,
   getSlaRules,
   SlaRule,
   signContractVersion,
-  updateContractName
+  updateContract
 } from '../api/api';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -38,6 +41,9 @@ export function ContractDetailsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [isEditing, setIsEditing] = React.useState<boolean>(false);
   const [nameDraft, setNameDraft] = React.useState<string>('');
+  const [counterpartyDraft, setCounterpartyDraft] = React.useState<string>('');
+  const [counterparties, setCounterparties] = React.useState<Counterparty[]>([]);
+  const [loadingCounterparties, setLoadingCounterparties] = React.useState<boolean>(false);
   const [saveLoading, setSaveLoading] = React.useState<boolean>(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [versions, setVersions] = React.useState<ContractVersion[]>([]);
@@ -52,6 +58,7 @@ export function ContractDetailsPage() {
   const [dashboard, setDashboard] = React.useState<ContractDashboard | null>(null);
   const [loadingDashboard, setLoadingDashboard] = React.useState<boolean>(false);
   const [errorDashboard, setErrorDashboard] = React.useState<string | null>(null);
+  const [factTypes, setFactTypes] = React.useState<FactTypeDefinition[]>([]);
   const [metricDraft, setMetricDraft] = React.useState<string>('DELIVERY_DELAY');
   const [templateDraft, setTemplateDraft] = React.useState<string>('');
   const [conditionTypeDraft, setConditionTypeDraft] = React.useState<'threshold' | 'range' | 'boolean'>('threshold');
@@ -70,6 +77,22 @@ export function ContractDetailsPage() {
     () => metrics.find((metric) => metric.code === metricDraft) ?? metrics[0],
     [metricDraft]
   );
+  const booleanEventTypes = React.useMemo(
+    () => factTypes.filter((x) => x.valueType === 'boolean'),
+    [factTypes]
+  );
+  const metricToFactTypeEventType = React.useMemo<Record<string, string>>(
+    () => ({
+      TEMPERATURE: 'TEMPERATURE_READING',
+      MISSING_DOCS: 'DOCUMENT_MISSING',
+      DOCUMENT_MISSING: 'DOCUMENT_MISSING'
+    }),
+    []
+  );
+  const selectedMetricDefinition = React.useMemo(() => {
+    const mappedEventType = metricToFactTypeEventType[metricDraft] ?? metricDraft;
+    return factTypes.find((item) => item.eventType === mappedEventType);
+  }, [factTypes, metricDraft, metricToFactTypeEventType]);
   const isThresholdCondition = conditionTypeDraft === 'threshold';
   const isRangeCondition = conditionTypeDraft === 'range';
   const isBooleanCondition = conditionTypeDraft === 'boolean';
@@ -88,11 +111,14 @@ export function ContractDetailsPage() {
   const ruleEventTypeFieldError = isBooleanCondition && errorRules && errorRules.includes(t.rules.eventType) ? errorRules : undefined;
   const rulePenaltyFieldError = errorRules && errorRules.includes(t.rules.penalty) ? errorRules : undefined;
   const getMetricLabel = React.useCallback((metricCode: string) => {
+    const mappedEventType = metricToFactTypeEventType[metricCode] ?? metricCode;
+    const fromRegistry = factTypes.find((item) => item.eventType === mappedEventType)?.displayName;
+    if (fromRegistry) return fromRegistry;
     if (metricCode === 'DELIVERY_DELAY') return t.rules.metrics.deliveryDelay;
     if (metricCode === 'TEMPERATURE') return t.rules.metrics.temperature;
     if (metricCode === 'MISSING_DOCS') return t.rules.metrics.missingDocs;
     return metricCode;
-  }, []);
+  }, [factTypes, metricToFactTypeEventType]);
 
   const readCargoTypeScope = React.useCallback((scope: unknown): string | undefined => {
     if (!scope || typeof scope !== 'object' || Array.isArray(scope)) {
@@ -149,6 +175,7 @@ export function ContractDetailsPage() {
       setData(result.contract);
       setEtag(result.etag);
       setNameDraft(result.contract.name);
+      setCounterpartyDraft(result.contract.counterpartyId ?? '');
     } catch {
       setError(t.errors.failedToLoadContract);
     } finally {
@@ -226,16 +253,47 @@ export function ContractDetailsPage() {
     void loadDashboard();
   }, [loadDashboard]);
 
+  const loadFactTypes = React.useCallback(async () => {
+    try {
+      const data = await getFactTypes();
+      setFactTypes(data);
+    } catch {
+      setFactTypes([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadFactTypes();
+  }, [loadFactTypes]);
+
+  const loadCounterparties = React.useCallback(async () => {
+    setLoadingCounterparties(true);
+    try {
+      const items = await getCounterparties();
+      setCounterparties(items);
+    } catch {
+      setCounterparties([]);
+    } finally {
+      setLoadingCounterparties(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadCounterparties();
+  }, [loadCounterparties]);
+
   const onStartEdit = React.useCallback(() => {
     setIsEditing(true);
     setSaveError(null);
     setNameDraft(data?.name ?? '');
+    setCounterpartyDraft(data?.counterpartyId ?? '');
   }, [data]);
 
   const onCancelEdit = React.useCallback(() => {
     setIsEditing(false);
     setSaveError(null);
     setNameDraft(data?.name ?? '');
+    setCounterpartyDraft(data?.counterpartyId ?? '');
   }, [data]);
 
   const onSave = React.useCallback(async () => {
@@ -243,11 +301,15 @@ export function ContractDetailsPage() {
       setSaveError(t.common.requestFailed);
       return;
     }
+    if (!counterpartyDraft.trim()) {
+      setSaveError(t.common.validationError);
+      return;
+    }
 
     setSaveLoading(true);
     setSaveError(null);
     try {
-      await updateContractName(id, nameDraft, etag);
+      await updateContract(id, { name: nameDraft.trim(), counterpartyId: counterpartyDraft }, etag);
       await loadContract();
       setIsEditing(false);
     } catch (err: unknown) {
@@ -261,7 +323,7 @@ export function ContractDetailsPage() {
     } finally {
       setSaveLoading(false);
     }
-  }, [id, etag, nameDraft, loadContract]);
+  }, [id, etag, nameDraft, counterpartyDraft, loadContract]);
 
   const onCreateVersion = React.useCallback(async () => {
     if (!id) return;
@@ -313,18 +375,26 @@ export function ContractDetailsPage() {
 
   React.useEffect(() => {
     if (templateDraft) return;
+    const defaultConditionType = selectedMetricDefinition?.defaultConditionType;
+    if (defaultConditionType === 'range' || defaultConditionType === 'boolean' || defaultConditionType === 'threshold') {
+      setConditionTypeDraft(defaultConditionType);
+    } else {
+      setConditionTypeDraft('threshold');
+    }
+    if (defaultConditionType === 'boolean') {
+      setEventTypeDraft(booleanEventTypes[0]?.eventType ?? 'DOCUMENT_MISSING');
+    }
+  }, [metricDraft, selectedMetricDefinition, templateDraft, booleanEventTypes]);
 
-    if (metricDraft === 'TEMPERATURE') {
-      setConditionTypeDraft('range');
+  React.useEffect(() => {
+    if (!isBooleanCondition || booleanEventTypes.length === 0) {
       return;
     }
-    if (metricDraft === 'MISSING_DOCS' || metricDraft === 'DOCUMENT_MISSING') {
-      setConditionTypeDraft('boolean');
-      setEventTypeDraft('DOCUMENT_MISSING');
-      return;
+    const exists = booleanEventTypes.some((x) => x.eventType === eventTypeDraft);
+    if (!exists) {
+      setEventTypeDraft(booleanEventTypes[0].eventType);
     }
-    setConditionTypeDraft('threshold');
-  }, [metricDraft, templateDraft]);
+  }, [booleanEventTypes, eventTypeDraft, isBooleanCondition]);
 
   const onTemplateSelect = React.useCallback((templateKey: string) => {
     setTemplateDraft(templateKey);
@@ -376,7 +446,7 @@ export function ContractDetailsPage() {
       setThresholdDraft('');
       setMinValueDraft('');
       setMaxValueDraft('');
-      setEventTypeDraft('DOCUMENT_MISSING');
+      setEventTypeDraft(booleanEventTypes[0]?.eventType ?? 'DOCUMENT_MISSING');
       setCargoTypeScopeDraft('');
       setPenaltyDraft('');
     } catch {
@@ -384,7 +454,7 @@ export function ContractDetailsPage() {
     } finally {
       setRuleActionLoading(false);
     }
-  }, [id, activatedVersion, canCreateRule, isRangeCondition, isBooleanCondition, conditionTypeDraft, isThresholdCondition, selectedMetric, operatorDraft, thresholdValue, minValue, maxValue, eventTypeDraft, cargoTypeScopeDraft, penaltyValue, loadRules]);
+  }, [id, activatedVersion, canCreateRule, isRangeCondition, isBooleanCondition, conditionTypeDraft, isThresholdCondition, selectedMetric, operatorDraft, thresholdValue, minValue, maxValue, eventTypeDraft, cargoTypeScopeDraft, penaltyValue, loadRules, booleanEventTypes]);
 
   const onDeleteRule = React.useCallback(
     async (ruleId: string) => {
@@ -426,13 +496,17 @@ export function ContractDetailsPage() {
               <div>
                 {t.contracts.name}: {data.name}
               </div>
+              <div>
+                {t.contracts.counterparty}:{' '}
+                {data.counterpartyName ?? data.counterpartyId ?? t.common.noData}
+              </div>
               <Button type="button" variant="secondary" onClick={onStartEdit}>
                 {t.contracts.edit}
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <FormField label={t.contracts.name} error={saveError ?? undefined}>
+              <FormField label={t.contracts.name}>
                 <Input
                   value={nameDraft}
                   onChange={(ev) => setNameDraft(ev.target.value)}
@@ -440,8 +514,30 @@ export function ContractDetailsPage() {
                   error={Boolean(saveError)}
                 />
               </FormField>
+              <FormField label={t.contracts.counterparty}>
+                <select
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  value={counterpartyDraft}
+                  onChange={(ev) => setCounterpartyDraft(ev.target.value)}
+                  disabled={saveLoading || loadingCounterparties}
+                >
+                  <option value="">{t.contracts.selectCounterpartyPlaceholder}</option>
+                  {counterparties.map((cp) => (
+                    <option key={cp.id} value={cp.id}>
+                      {cp.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              {loadingCounterparties ? <div className="text-sm text-gray-600">{t.common.loading}</div> : null}
+              {saveError ? <div className="text-sm text-red-600">{saveError}</div> : null}
               <div className="flex gap-2">
-                <Button type="button" variant="primary" onClick={() => void onSave()} disabled={saveLoading}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => void onSave()}
+                  disabled={saveLoading || !nameDraft.trim() || !counterpartyDraft.trim()}
+                >
                   {t.contracts.save}
                 </Button>
                 <Button type="button" variant="secondary" onClick={onCancelEdit} disabled={saveLoading}>
@@ -640,7 +736,7 @@ export function ContractDetailsPage() {
                         className="w-24"
                         error={Boolean(ruleThresholdFieldError)}
                       />
-                      <span>{selectedMetric.unit}</span>
+                      <span>{selectedMetricDefinition?.unit ?? selectedMetric.unit}</span>
                     </div>
                   </FormField>
                 </>
@@ -656,7 +752,7 @@ export function ContractDetailsPage() {
                         className="w-24"
                         error={Boolean(ruleMinFieldError)}
                       />
-                      <span>{selectedMetric.unit}</span>
+                      <span>{selectedMetricDefinition?.unit ?? selectedMetric.unit}</span>
                     </div>
                   </FormField>
                   <FormField label={t.rules.maxValue} error={ruleMaxFieldError}>
@@ -669,7 +765,7 @@ export function ContractDetailsPage() {
                         className="w-24"
                         error={Boolean(ruleMaxFieldError)}
                       />
-                      <span>{selectedMetric.unit}</span>
+                      <span>{selectedMetricDefinition?.unit ?? selectedMetric.unit}</span>
                     </div>
                   </FormField>
                 </>
@@ -680,7 +776,12 @@ export function ContractDetailsPage() {
                     onChange={(ev) => setEventTypeDraft(ev.target.value)}
                     disabled={ruleActionLoading}
                   >
-                    <option value="DOCUMENT_MISSING">DOCUMENT_MISSING</option>
+                    {booleanEventTypes.map((item) => (
+                      <option key={item.eventType} value={item.eventType}>
+                        {item.eventType}
+                      </option>
+                    ))}
+                    {booleanEventTypes.length === 0 ? <option value="DOCUMENT_MISSING">DOCUMENT_MISSING</option> : null}
                   </select>
                 </FormField>
               )}

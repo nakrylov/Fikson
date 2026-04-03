@@ -158,6 +158,18 @@ export async function createCounterparty(name: string): Promise<Counterparty> {
   });
 }
 
+export type FactTypeDefinition = {
+  eventType: string;
+  displayName: string;
+  valueType: 'number' | 'boolean' | 'datetime' | 'none';
+  defaultConditionType: 'threshold' | 'range' | 'boolean';
+  unit?: string | null;
+};
+
+export async function getFactTypes(): Promise<FactTypeDefinition[]> {
+  return apiRequest<FactTypeDefinition[]>('/api/fact-types', { method: 'GET' });
+}
+
 export type CreateInviteResponse = {
   inviteToken: string;
   expiresAt: string;
@@ -257,7 +269,8 @@ export async function revokeTenantInvite(tenantId: string, inviteId: string): Pr
 export type ContractDetailsResponse = {
   id: string;
   name: string;
-  counterpartyId: string;
+  counterpartyId?: string | null;
+  counterpartyName?: string | null;
   status: number | string;
   createdAt: string;
   currentVersionId?: string | null;
@@ -312,14 +325,19 @@ export async function getContractDetailsWithEtag(
   };
 }
 
-export async function updateContractName(contractId: string, name: string, etag: string): Promise<void> {
+export async function updateContract(
+  contractId: string,
+  body: { name: string; counterpartyId: string | null },
+  etag: string
+): Promise<void> {
   await apiRequest<void>(`/api/contracts/${encodeURIComponent(contractId)}`, {
     method: 'PUT',
     headers: {
       'If-Match': etag
     },
     body: {
-      name
+      name: body.name,
+      counterpartyId: body.counterpartyId
     }
   });
 }
@@ -467,10 +485,6 @@ export async function getFactImports(): Promise<FactImport[]> {
 }
 
 const FACT_IMPORT_TEMPLATE_FILE_NAME = 'fact_import_template.csv';
-const FACT_IMPORT_TEMPLATE_CONTENT =
-  'shipmentId;factType;eventType;cargoType;eventTime;value;counterpartyCode\n' +
-  'SHP-001;DELIVERY_DELAY;DELIVERY_DELAY;ICE_CREAM;2026-01-01T10:00:00Z;45;CONTOSO\n' +
-  'SHP-002;DOCUMENT_MISSING;DOCUMENT_MISSING;FROZEN_FISH;2026-01-01T11:00:00Z;1;NORTHWIND\n';
 
 function triggerFileDownload(blob: Blob, fileName: string): void {
   const objectUrl = window.URL.createObjectURL(blob);
@@ -505,13 +519,6 @@ export async function downloadFactImportTemplate(): Promise<void> {
     throw new ApiError('Unauthorized', 401, null);
   }
 
-  if (res.status === 404) {
-    // Backward-compatible fallback when API route is unavailable in older backend builds.
-    const fallbackBlob = new Blob([FACT_IMPORT_TEMPLATE_CONTENT], { type: 'text/csv;charset=utf-8' });
-    triggerFileDownload(fallbackBlob, FACT_IMPORT_TEMPLATE_FILE_NAME);
-    return;
-  }
-
   if (!res.ok) {
     const payload = await res.text().catch(() => null);
     throw new ApiError(`Request failed (${res.status})`, res.status, payload);
@@ -522,7 +529,10 @@ export async function downloadFactImportTemplate(): Promise<void> {
 }
 
 export type ImportFactsResponse = {
-  imported: number;
+  imported: number; // backward compatibility alias of generatedEvents
+  importedRows?: number;
+  generatedEvents?: number;
+  skippedRows?: number;
   claimsGenerated: number;
 };
 

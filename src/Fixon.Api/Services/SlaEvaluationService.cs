@@ -47,12 +47,13 @@ public sealed class SlaEvaluationService
                     out var value,
                     out var hasNumericValue,
                     out var eventType,
-                    out var cargoType))
+                    out var cargoType,
+                    out var counterpartyId))
             {
                 continue;
             }
 
-            facts.Add(new DeliveryDelayFactInput(shipmentId, metric, value, hasNumericValue, eventType, cargoType));
+            facts.Add(new DeliveryDelayFactInput(shipmentId, metric, value, hasNumericValue, eventType, cargoType, counterpartyId));
         }
 
         if (facts.Count == 0)
@@ -81,6 +82,7 @@ public sealed class SlaEvaluationService
                 rule.MaxValue,
                 rule.Name,
                 rule.ContractId,
+                ContractCounterpartyId = contract.CounterpartyId,
                 ContractVersionId = contract.CurrentVersionId!.Value
             })
             .ToListAsync(ct);
@@ -125,7 +127,8 @@ public sealed class SlaEvaluationService
                 CargoTypeScope: cargoTypeScope,
                 EventType: eventType,
                 MinValue: conditionType == SlaRule.ConditionTypeRange ? Convert.ToDouble(item.MinValue ?? 0m) : null,
-                MaxValue: conditionType == SlaRule.ConditionTypeRange ? Convert.ToDouble(item.MaxValue ?? 0m) : null));
+                MaxValue: conditionType == SlaRule.ConditionTypeRange ? Convert.ToDouble(item.MaxValue ?? 0m) : null,
+                ContractCounterpartyId: item.ContractCounterpartyId));
         }
 
         if (rules.Count == 0)
@@ -236,7 +239,8 @@ public sealed class SlaEvaluationService
         out double value,
         out bool hasNumericValue,
         out string? eventType,
-        out string? cargoType)
+        out string? cargoType,
+        out Guid? counterpartyId)
     {
         metric = string.Empty;
         shipmentId = string.Empty;
@@ -244,11 +248,19 @@ public sealed class SlaEvaluationService
         hasNumericValue = false;
         eventType = null;
         cargoType = null;
+        counterpartyId = null;
 
         try
         {
             using var doc = JsonDocument.Parse(attributesJson);
             var root = doc.RootElement;
+
+            if (root.TryGetProperty("counterpartyId", out var counterpartyIdProp)
+                && counterpartyIdProp.ValueKind == JsonValueKind.String
+                && Guid.TryParse(counterpartyIdProp.GetString(), out var parsedCp))
+            {
+                counterpartyId = parsedCp;
+            }
 
             if (root.TryGetProperty("shipmentId", out var shipmentIdProp) && shipmentIdProp.ValueKind == JsonValueKind.String)
             {

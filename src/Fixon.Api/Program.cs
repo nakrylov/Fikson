@@ -322,6 +322,8 @@ else
         .RequireAuthorization(Permissions.ContractsRead);
     tenantApi.MapPost("/counterparties", CounterpartiesEndpoints.CreateCounterparty)
         .RequireAuthorization(Permissions.ContractsManage);
+    tenantApi.MapGet("/fact-types", FactTypesEndpoints.GetFactTypes)
+        .RequireAuthorization(Permissions.ContractsRead);
 
     tenantApi.MapGet("/contracts", ContractsEndpoints.GetContracts)
         .RequireAuthorization(Permissions.ContractsRead);

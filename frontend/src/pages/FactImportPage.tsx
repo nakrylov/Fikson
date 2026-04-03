@@ -6,7 +6,9 @@ import { FormField } from '../components/FormField';
 import { Column, Table } from '../components/Table';
 import { t } from '../i18n';
 
-const REQUIRED_HEADERS = ['shipmentId', 'factType', 'eventTime', 'value', 'counterpartyCode'] as const;
+const EVENT_REQUIRED_HEADERS = ['shipmentId', 'factType', 'eventTime', 'value'] as const;
+const TABULAR_REQUIRED_HEADERS = ['shipmentId', 'counterpartyCode'] as const;
+const TABULAR_HINT_HEADERS = ['plannedDeliveryTime', 'actualDeliveryTime', 'temperature', 'documentsMissing'] as const;
 
 export function FactImportPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -18,7 +20,13 @@ export function FactImportPage() {
   const [uploading, setUploading] = useState(false);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadResult, setUploadResult] = useState<{ imported: number; claimsGenerated: number } | null>(null);
+  const [uploadResult, setUploadResult] = useState<{
+    imported: number;
+    claimsGenerated: number;
+    importedRows?: number;
+    generatedEvents?: number;
+    skippedRows?: number;
+  } | null>(null);
 
   const [items, setItems] = useState<FactImport[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -97,7 +105,9 @@ export function FactImportPage() {
 
         const delimiter = lines[0].includes(';') ? ';' : ',';
         const parsedHeaders = lines[0].split(delimiter).map((cell) => cell.trim());
-        const missing = REQUIRED_HEADERS.filter((required) => !parsedHeaders.includes(required));
+        const isTabular = TABULAR_HINT_HEADERS.some((header) => parsedHeaders.includes(header));
+        const requiredHeaders = isTabular ? TABULAR_REQUIRED_HEADERS : EVENT_REQUIRED_HEADERS;
+        const missing = requiredHeaders.filter((required) => !parsedHeaders.includes(required));
         if (missing.length > 0) {
           setMissingHeaders([...missing]);
           setParseError(t.imports.invalidFormat);
@@ -204,6 +214,7 @@ export function FactImportPage() {
           </FormField>
           <div className="text-sm text-gray-600">{t.imports.previewHint}</div>
           <div className="text-sm text-gray-600">{t.imports.counterpartyMatchHint}</div>
+          <div className="text-sm text-gray-600">{t.imports.recommendedTabularHint}</div>
           {parseError ? (
             <div className="space-y-2 text-sm text-red-600">
               <div>{parseError}</div>
@@ -236,7 +247,7 @@ export function FactImportPage() {
           ) : null}
           {uploadResult ? (
             <div>
-              {t.imports.rows}: {uploadResult.imported}; {t.imports.claims}: {uploadResult.claimsGenerated}
+              {t.imports.rows}: {uploadResult.importedRows ?? uploadResult.imported}; events: {uploadResult.generatedEvents ?? uploadResult.imported}; skipped: {uploadResult.skippedRows ?? 0}; {t.imports.claims}: {uploadResult.claimsGenerated}
             </div>
           ) : null}
         </div>

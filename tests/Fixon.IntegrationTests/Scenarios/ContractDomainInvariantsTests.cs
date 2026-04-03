@@ -109,7 +109,8 @@ public sealed class ContractDomainInvariantsTests
 
         using (var putReq = new HttpRequestMessage(HttpMethod.Put, getUrl)
         {
-            // UpdateContractRequest only has Name today, but we send extra fields to verify they are rejected/ignored.
+            // Extra fields (id, tenantId, status, …) must be ignored; name and counterpartyId are applied when valid.
+            // counterpartyId is a supported field; other keys must be ignored.
             Content = JsonContent.Create(new
             {
                 id = attemptedIdChange,
@@ -147,7 +148,8 @@ public sealed class ContractDomainInvariantsTests
             Assert.Equal(contractId, afterIdProp.GetGuid());
 
             Assert.True(getAfterJson.TryGetProperty("counterpartyId", out var afterCpProp));
-            Assert.Equal(originalCounterpartyId, afterCpProp.GetGuid());
+            var afterExpectedCp = putAccepted ? counterpartyId2 : originalCounterpartyId;
+            Assert.Equal(afterExpectedCp, afterCpProp.GetGuid());
 
             // name changes only if update accepted; otherwise must stay the same
             Assert.True(getAfterJson.TryGetProperty("name", out var afterNameProp));

@@ -332,8 +332,9 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CounterpartyId")
-                        .HasColumnType("uuid");
+                    b.Property<Guid?>("CounterpartyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("counterparty_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -553,6 +554,51 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.HasIndex("CompanyId", "CreatedAt");
 
                     b.ToTable("fact_imports", (string)null);
+                });
+
+            modelBuilder.Entity("Fixon.Domain.Facts.FactTypeDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DefaultConditionType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventType")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("fact_type_definitions", (string)null);
                 });
 
             modelBuilder.Entity("Fixon.Domain.Imports.ImportBatch", b =>
@@ -1272,8 +1318,7 @@ namespace Fixon.Infrastructure.Persistence.Migrations
                     b.HasOne("Fixon.Domain.Contracts.Counterparty", "Counterparty")
                         .WithMany()
                         .HasForeignKey("CounterpartyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Company");
 

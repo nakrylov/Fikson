@@ -28,17 +28,20 @@ public static class ContractsEndpoints
         [FromServices] UserContext userContext,
         CancellationToken ct)
     {
-        var items = await db.Contracts
-            .AsNoTracking()
-            .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new
+        var items = await (
+            from c in db.Contracts.AsNoTracking()
+            join cp in db.Counterparties.AsNoTracking() on c.CounterpartyId equals cp.Id into cpJoin
+            from cp in cpJoin.DefaultIfEmpty()
+            orderby c.CreatedAt descending
+            select new
             {
-                x.Id,
-                x.Name,
-                x.CounterpartyId,
-                x.Status,
-                x.CurrentVersionId,
-                x.CreatedAt
+                c.Id,
+                c.Name,
+                counterpartyId = c.CounterpartyId,
+                counterpartyName = cp != null ? cp.Name : null,
+                c.Status,
+                c.CurrentVersionId,
+                c.CreatedAt
             })
             .ToListAsync(ct);
 
@@ -52,14 +55,17 @@ public static class ContractsEndpoints
         HttpContext httpContext,
         CancellationToken ct)
     {
-        var contract = await db.Contracts
-            .AsNoTracking()
-            .Where(x => x.Id == contractId)
-            .Select(x => new
+        var contract = await (
+            from x in db.Contracts.AsNoTracking()
+            join cp in db.Counterparties.AsNoTracking() on x.CounterpartyId equals cp.Id into cpJoin
+            from cp in cpJoin.DefaultIfEmpty()
+            where x.Id == contractId
+            select new
             {
                 x.Id,
                 x.Name,
-                x.CounterpartyId,
+                counterpartyId = x.CounterpartyId,
+                counterpartyName = cp != null ? cp.Name : null,
                 x.Status,
                 x.CurrentVersionId,
                 x.CreatedAt,
@@ -76,7 +82,8 @@ public static class ContractsEndpoints
         {
             contract.Id,
             contract.Name,
-            contract.CounterpartyId,
+            contract.counterpartyId,
+            contract.counterpartyName,
             contract.Status,
             contract.CurrentVersionId,
             contract.CreatedAt
@@ -175,12 +182,26 @@ public static class ContractsEndpoints
 
         if (request.CounterpartyId == Guid.Empty)
         {
-            errors["CounterpartyId"] = new[] { "CounterpartyId is required." };
+            errors["CounterpartyId"] = new[] { "CounterpartyId cannot be empty when provided." };
         }
 
         if (errors.Count > 0)
         {
             return Results.ValidationProblem(errors);
+        }
+
+        if (request.CounterpartyId is Guid requestedCounterpartyId && requestedCounterpartyId != Guid.Empty)
+        {
+            var counterpartyExists = await db.Counterparties
+                .AsNoTracking()
+                .AnyAsync(x => x.Id == requestedCounterpartyId && x.CompanyId == tenantId, ct);
+            if (!counterpartyExists)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["CounterpartyId"] = new[] { "Counterparty not found for this tenant." }
+                });
+            }
         }
 
         // Idempotency implementation (race-safe):
@@ -335,10 +356,71 @@ FOR UPDATE")
             return Results.BadRequest(new { error = "Invalid If-Match ETag format." });
         }
 
+        var tenantIdClaim = httpContext.User.FindFirst(FixonClaims.TenantId)?.Value;
+        if (string.IsNullOrWhiteSpace(tenantIdClaim) || !Guid.TryParse(tenantIdClaim, out var tenantId))
+        {
+            return Results.BadRequest(new { error = "Tenant ID not found in token." });
+        }
+
         var contract = await db.Contracts.SingleOrDefaultAsync(x => x.Id == contractId, ct);
         if (contract is null) return Results.NotFound();
 
         contract.Rename(request.Name);
+
+        // Optional: only when "counterpartyId" is present in JSON (omit = leave unchanged; null = clear).
+        var cpEl = request.CounterpartyId;
+        if (cpEl.ValueKind != JsonValueKind.Undefined)
+        {
+            Guid? newCounterpartyId;
+            if (cpEl.ValueKind == JsonValueKind.Null)
+            {
+                newCounterpartyId = null;
+            }
+            else if (cpEl.ValueKind == JsonValueKind.String)
+            {
+                var s = cpEl.GetString();
+                if (string.IsNullOrWhiteSpace(s) || !Guid.TryParse(s, out var parsed))
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["CounterpartyId"] = new[] { "CounterpartyId must be a valid GUID string when provided." }
+                    });
+                }
+
+                if (parsed == Guid.Empty)
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["CounterpartyId"] = new[] { "CounterpartyId cannot be empty when provided." }
+                    });
+                }
+
+                newCounterpartyId = parsed;
+            }
+            else
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["CounterpartyId"] = new[] { "CounterpartyId must be a JSON string or null." }
+                });
+            }
+
+            if (newCounterpartyId is Guid cid && cid != Guid.Empty)
+            {
+                var counterpartyExists = await db.Counterparties
+                    .AsNoTracking()
+                    .AnyAsync(x => x.Id == cid && x.CompanyId == tenantId, ct);
+                if (!counterpartyExists)
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["CounterpartyId"] = new[] { "Counterparty not found for this tenant." }
+                    });
+                }
+            }
+
+            contract.SetCounterparty(newCounterpartyId);
+        }
 
         // Set original xmin (shadow property) for optimistic concurrency check.
         db.Entry(contract).Property("xmin").OriginalValue = expectedXmin;
@@ -1001,7 +1083,7 @@ FOR UPDATE")
 public sealed class CreateContractRequest
 {
     public string Name { get; set; } = null!;
-    public Guid CounterpartyId { get; set; }
+    public Guid? CounterpartyId { get; set; }
     public DateTimeOffset? EffectiveFromUtc { get; set; }
     public string? PdfFilePath { get; set; }
     public string? SlaRulesSnapshotJson { get; set; }
@@ -1020,6 +1102,11 @@ public sealed class CreateContractVersionRequest
 public sealed class UpdateContractRequest
 {
     public string Name { get; set; } = null!;
+
+    /// <summary>
+    /// Omitted = do not change counterparty. JSON null = clear. JSON string = set (must exist for tenant).
+    /// </summary>
+    public JsonElement CounterpartyId { get; set; }
 }
 
 public sealed class CreateSlaRuleRequest

@@ -68,6 +68,7 @@ export const en = {
     noResults: 'No results',
     createCompany: 'Create',
     selectOrCreateCompany: 'Select existing company or create a new one.',
+    selectCounterpartyPlaceholder: '— Select counterparty —',
     companyName: 'Company name'
   },
   rules: {
@@ -124,10 +125,11 @@ export const en = {
     downloadTemplate: 'Download template',
     previewTitle: 'CSV preview',
     confirmImport: 'Confirm import',
-    invalidFormat: 'Invalid CSV format. Required columns: shipmentId, factType, eventTime, value, counterpartyCode',
+    invalidFormat: 'Invalid CSV format.',
     missingColumnsLabel: 'Missing required columns',
     previewHint: '1) Select CSV file  2) Preview data  3) Confirm import',
     counterpartyMatchHint: 'Facts are matched to contracts by counterparty',
+    recommendedTabularHint: 'Recommended: 1 row per shipment format',
     selectFile: 'CSV file',
     upload: 'Upload',
     uploading: 'Uploading…',
